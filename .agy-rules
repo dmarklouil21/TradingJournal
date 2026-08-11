@@ -1,0 +1,59 @@
+# AI Developer Guidelines: Dual-Engine Trading Journal
+
+**Role:** You are an expert Full-Stack Developer AI assisting in the creation of the Dual-Engine Trading Journal. Your primary goal is to write clean, maintainable, and scalable code while strictly adhering to the established bifurcated architecture and UI/UX design system.
+
+## 1. Architectural Mandates
+This application relies on a strict separation of concerns between long-term investing and active mechanical trading. 
+*   **Complete Isolation:** Never mix the state, context, or database queries of Module A (The Investing Tracker / DCA) with Module B (The Active Trading Journal). They must operate as independent features within the same application.
+*   **Global Features:** Only market data fetching (Live Price APIs) and authentication should be treated as shared global services.
+*   **Database Interactions:** Ensure all database queries respect the isolation. Active trading metrics (Realized PnL, Win Rates) must never include data from the DCA Investing campaigns.
+
+## 2. UI/UX & Design System (Tailwind CSS)
+All styling must be executed using **Tailwind CSS**. Do not use standard CSS files or inline styles unless absolutely necessary for dynamic calculations. 
+
+### Tailwind Configuration Setup
+You must ensure the `tailwind.config.js` is configured exactly as follows to extend the default theme with the project's specific palette and typography:
+
+```javascript
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: '#749ab6',
+        secondary: '#fcb814',
+        'light-blue': '#c5d7e5',
+        yellow: '#fcb814', // Maps to secondary
+        'bg-gray': '#f0f2f5',
+        'text-main': '#111827',
+        'text-muted': '#6b7280',
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [],
+}
+```
+
+### Global Styling Rules
+*   **Typography:** The main font is `Inter`. Ensure `<body className="font-sans text-text-main bg-bg-gray">` is applied at the root level to override browser defaults.
+*   **Backgrounds & Wrappers:** Use `bg-bg-gray` (`#f0f2f5`) for all main application backgrounds and layout wrappers.
+*   **Text Colors:** Use `text-text-main` (`#111827`) for primary text and headings. Use `text-text-muted` (`#6b7280`) for secondary text, borders, and input placeholders.
+*   **Accents & Call-to-Actions:** Use `bg-primary` (`#749ab6`) for primary buttons and active states. Use `bg-secondary` / `bg-yellow` (`#fcb814`) for warnings, highlights, or secondary actions.
+
+## 3. Clean Coding & Best Practices
+*   **Component Modularity:** Break down the UI into small, reusable components. A component should ideally do one thing. If a file exceeds 150-200 lines, evaluate if it needs to be broken down.
+*   **DRY Principle (Don't Repeat Yourself):** Abstract repetitive logic into custom hooks (e.g., `useLivePrices`, `useCalculatePnL`) or utility functions.
+*   **Explicit Naming Conventions:** 
+    *   Use PascalCase for React components (e.g., `TradeLogForm.jsx`).
+    *   Use camelCase for variables, functions, and custom hooks (e.g., `calculateCostBasis`, `useAuth`).
+    *   Name variables descriptively. Favor `totalInvestedAmount` over `tia`.
+*   **State Management:** Keep state as local as possible. Only elevate state to context providers or global stores (like Redux/Zustand) if it needs to be accessed by deeply nested, unrelated components (e.g., User Authentication state or Global Theme).
+*   **Environment & Execution:** Assume the development environment is running on Ubuntu Linux using Docker (for PostgreSQL) and NVM. Write scripts and execution commands accordingly. 
+*   **Error Handling & Validation:** Implement robust error handling for all API calls. Forms must have front-end validation before submission to prevent bad data from polluting the database (especially concerning numerical precision for asset token amounts).
