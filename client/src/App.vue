@@ -6,13 +6,14 @@ const route = useRoute();
 </script>
 
 <template>
-  <div class="min-h-screen bg-bg-gray text-text-main font-sans">
-    <NavMenu v-if="!route.meta?.hideNav" />
-    <main>
+  <div class="min-h-screen bg-bg-gray text-text-main font-sans flex">
+    <NavMenu v-if="!route.meta?.hideNav" class="shrink-0" />
+    <main class="flex-grow min-w-0 flex flex-col">
       <RouterView />
     </main>
   </div>
 </template>
+
 
 <style scoped>
 </style>
