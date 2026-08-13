@@ -1,20 +1,39 @@
 <script setup>
 import { ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
+import axios from 'axios';
 
 const router = useRouter();
 const email = ref('');
 const password = ref('');
 const isLoading = ref(false);
 
-const handleLogin = (e) => {
+const handleLogin = async (e) => {
   e.preventDefault();
   isLoading.value = true;
   // Mock login for now
-  setTimeout(() => {
+  // setTimeout(() => {
+  //   isLoading.value = false;
+  //   router.push('/home');
+  // }, 1000);
+  try {
+    const credentials = {
+      email: email.value,
+      password: password.value
+    };
+
+    const res = await axios.post("http://localhost:5234/api/auth/login", credentials);
+    if(res.data) {
+      alert("Login successfull");
+    }
+  }
+  catch(e) {
+    alert("Login failed!");
+    console.log("An error occured while attempting to login", e);
+  }
+  finally{
     isLoading.value = false;
-    router.push('/home');
-  }, 1000);
+  }
 };
 </script>
 

@@ -1,4 +1,5 @@
 <script setup>
+import axios from 'axios';
 import { ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
@@ -8,14 +9,34 @@ const email = ref('');
 const password = ref('');
 const isLoading = ref(false);
 
-const handleRegister = (e) => {
+const handleRegister = async (e) => {
   e.preventDefault();
   isLoading.value = true;
   // Mock register for now
-  setTimeout(() => {
+  // setTimeout(() => {
+  //   isLoading.value = false;
+  //   router.push('/home');
+  // }, 1000);
+
+  try {
+    const newUser = {
+      fullName: name.value,
+      email: email.value,
+      password: password.value
+    };
+
+    const res = await axios.post('http://localhost:5234/api/auth/register', newUser);
+    if(res.data) {
+      alert('Registration successful');
+    }
+  } 
+  catch (e) {
+    alert('Registration failed');
+    console.log('Something went wrong while registering', e);
+  }
+  finally {
     isLoading.value = false;
-    router.push('/home');
-  }, 1000);
+  }
 };
 </script>
 
