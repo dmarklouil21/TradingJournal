@@ -45,4 +45,19 @@ const router = createRouter({
   ],
 })
 
+router.beforeEach((to, from, next) => {
+  const isAuthenticated = !!localStorage.getItem('token');
+  
+  if (isAuthenticated && (to.name === 'login' || to.name === 'register' || to.name === 'hero')) {
+    // Redirect authenticated users away from public pages
+    next({ name: 'home' });
+  } else if (!isAuthenticated && !to.meta.hideNav) {
+    // Redirect unauthenticated users away from protected pages
+    next({ name: 'login' });
+  } else {
+    // Proceed normally
+    next();
+  }
+});
+
 export default router

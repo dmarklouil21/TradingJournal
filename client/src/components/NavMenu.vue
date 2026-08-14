@@ -29,8 +29,8 @@ const navItems = [
 ];
 
 const handleLogout = () => {
-  // Add actual logout logic here later
-  router.push('/');
+  localStorage.removeItem('token');
+  router.push('/auth/login');
 };
 </script>
 

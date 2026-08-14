@@ -21,22 +21,13 @@ public class AuthController : ControllerBase
   [HttpPost("login")]
   public async Task<IActionResult> Login([FromBody] LoginRequestDTO request)
   {
-    if(string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-    {
-      return BadRequest("Email and password are required");
-    }
-
     var result = await _authService.LoginAsync(request);
     if(!result.Success)
-    {
-      return Unauthorized("Invalid login attempt.");
-    }
-
-    string sampleToken = "QwErTy"; // TODO: Implement real JWT generation
+      return Unauthorized(new { Error = result.Error });
 
     var response = new LoginResponseDTO
     {
-      Token = sampleToken,
+      Token = result.Token,
       Username = request.Email,
       Expiration = DateTime.UtcNow.AddHours(1)
     };
@@ -49,11 +40,16 @@ public class AuthController : ControllerBase
   {
     var result = await _authService.RegisterAsync(request);
 
-    if(result.Success)
-    {
-      return Ok();
-    }
+    if(!result.Success) 
+      return BadRequest(new { Errors = result.Errors });
 
-    return BadRequest(new { Errors = result.Errors });
+    var response = new LoginResponseDTO
+    {
+      Token = result.Token,
+      Username = request.Email,
+      Expiration = DateTime.UtcNow.AddHours(1)
+    };
+
+    return Ok(response);
   }
 }
