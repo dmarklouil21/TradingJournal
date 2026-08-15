@@ -1,5 +1,7 @@
 <script setup>
 import { ref } from 'vue';
+import { computed } from 'vue';
+import { submitPurchase } from '@/services/investment';
 
 // Mock Data
 const totalDeployed = ref(85000.00);
@@ -22,7 +24,78 @@ const dcaCampaigns = ref([
   { id: 4, asset: 'Chainlink', symbol: 'LINK', holdings: '500.0', avgCost: 15.5, currentPrice: 13.2, phase: 'Accumulation' }
 ]);
 
-import { computed } from 'vue';
+// New Purchase Modal State
+const isPurchaseModalOpen = ref(false);
+const newPurchase = ref({
+  asset: '',
+  symbol: '',
+  amount: null,
+  price: null,
+  fees: null,
+  date: new Date().toISOString().split('T')[0]
+});
+
+const totalPurchaseCost = computed(() => {
+  return ((newPurchase.value.amount || 0) * (newPurchase.value.price || 0)) + ((newPurchase.value.fees || 0) * (newPurchase.value.price || 0));
+});
+
+const isSubmitting = ref(false);
+const errorMessage = ref('');
+const successMessage = ref('');
+
+const closePurchaseModal = () => {
+  isPurchaseModalOpen.value = false;
+  errorMessage.value = '';
+  newPurchase.value = {
+    asset: '',
+    symbol: '',
+    amount: null,
+    price: null,
+    date: new Date().toISOString().split('T')[0]
+  };
+};
+
+const handlePurchase = async () => {
+  isSubmitting.value = true;
+  errorMessage.value = '';
+
+  try {
+    const payload = {
+      name: newPurchase.value.asset,
+      symbol: newPurchase.value.symbol,
+      amountTokens: parseFloat(newPurchase.value.amount),
+      purchasePrice: parseFloat(newPurchase.value.price),
+      fees: parseFloat(newPurchase.value.fees),
+      executionDate: new Date(newPurchase.value.date).toISOString()
+    };
+    const res = await submitPurchase(payload);
+    
+    if (res.status === 200) {
+      successMessage.value = `Successfully logged ${payload.amountTokens} ${payload.symbol} to your DCA Campaign!`;
+      closePurchaseModal();
+      
+      // Auto-hide the toast after 4 seconds
+      setTimeout(() => {
+        successMessage.value = '';
+      }, 4000);
+    }
+  } catch (ex) {
+    if(ex.response && ex.response.data) {
+      if(ex.response.data.error) {
+        errorMessage.value = ex.response.data.error;
+      } else if (ex.response.data.errors) {
+        errorMessage.value = Object.values(ex.response.data.errors).flat().join(', ');
+      } else {
+        errorMessage.value = "Failed to log purchase. Please check your inputs.";
+      }
+    } else {
+      errorMessage.value = "An unexpected error occurred. Please try again.";
+    }
+    console.error(ex);
+  } finally {
+    isSubmitting.value = false;
+  }
+};
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -41,13 +114,20 @@ const getPnLBg = (cost, current) => {
 </script>
 
 <template>
-  <div class="p-6 md:p-10 max-w-7xl mx-auto space-y-8 w-full">
+  <div class="p-6 md:p-10 max-w-7xl mx-auto space-y-8 w-full relative">
+    
+    <!-- Global Success Toast -->
+    <div v-if="successMessage" class="fixed top-8 right-8 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-4 rounded-2xl shadow-xl shadow-green-900/5 flex items-center gap-3 animate-[fadeIn_0.3s_ease-out]">
+      <svg class="w-6 h-6 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <p class="font-bold text-sm">{{ successMessage }}</p>
+    </div>
+
     <header class="flex justify-between items-end mb-8 mt-4">
       <div>
         <h1 class="text-3xl font-extrabold text-text-main tracking-tight">Investing Tracker</h1>
         <p class="text-text-muted mt-1">DCA Module A: Long-term asset accumulation cycle.</p>
       </div>
-      <button class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-primary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all flex items-center gap-2">
+      <button @click="isPurchaseModalOpen = true" class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-primary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         New Purchase
       </button>
@@ -191,6 +271,72 @@ const getPnLBg = (cost, current) => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- New Purchase Modal -->
+    <div v-if="isPurchaseModalOpen" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-[fadeIn_0.2s_ease-out]">
+        <button @click="closePurchaseModal" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <h2 class="text-2xl font-extrabold text-text-main mb-2">Log New Purchase</h2>
+        <p class="text-text-muted text-sm font-medium mb-6">Add a new execution to your long-term DCA tracking.</p>
+
+        <!-- Error Message Alert -->
+        <div v-if="errorMessage" class="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 transition-all">
+          <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <p class="text-sm font-medium text-red-700 leading-tight">{{ errorMessage }}</p>
+        </div>
+
+        <form @submit.prevent="handlePurchase" class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Asset Name</label>
+              <input v-model="newPurchase.asset" type="text" required placeholder="Bitcoin" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Symbol</label>
+              <input v-model="newPurchase.symbol" type="text" required placeholder="BTC" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main placeholder-text-muted uppercase" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Amount (Units)</label>
+              <input v-model="newPurchase.amount" type="number" step="any" min="0" required placeholder="0.05" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Execution Price</label>
+              <input v-model="newPurchase.price" type="number" step="any" min="0" required placeholder="65000" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Fees (Token)</label>
+              <input v-model="newPurchase.fees" type="number" step="any" min="0" required placeholder="0.001" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Purchase Date</label>
+              <input v-model="newPurchase.date" type="date" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main text-sm" />
+            </div>
+          </div>
+
+          <!-- Dynamic Total Cost Calculator -->
+          <div class="p-4 bg-light-blue rounded-xl flex justify-between items-center border border-primary/10">
+            <span class="text-sm font-bold text-text-main">Total Cost</span>
+            <span class="text-xl font-black text-primary">{{ formatCurrency(totalPurchaseCost) }}</span>
+          </div>
+
+          <div class="flex gap-4 pt-2">
+            <button type="button" @click="closePurchaseModal" class="flex-1 py-3.5 rounded-xl bg-gray-100 text-text-muted font-bold hover:bg-gray-200 transition-colors" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" class="flex-1 py-3.5 rounded-xl bg-primary text-white font-bold shadow-md shadow-primary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:hover:translate-y-0" :disabled="isSubmitting">
+              {{ isSubmitting ? 'Logging...' : 'Log Purchase' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

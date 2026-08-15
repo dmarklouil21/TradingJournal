@@ -1,5 +1,3 @@
-using System;
-using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 
@@ -28,10 +26,13 @@ public class Program
     var jwtSettings = builder.Configuration.GetSection("Jwt");
     var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
 
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole>().AddEntityFrameworkStores<TradingJournalContext>();
+
     builder.Services.AddAuthentication(options =>
     {
       options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
       options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+      options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
     })
     .AddJwtBearer(options =>
     {
@@ -48,7 +49,6 @@ public class Program
     });
 
     builder.Services.AddAuthorization();
-    builder.Services.AddIdentity<ApplicationUser, IdentityRole>().AddEntityFrameworkStores<TradingJournalContext>();
     
     builder.Services.AddCors(options =>
     {
@@ -65,6 +65,7 @@ public class Program
     builder.Services.AddDbContext<TradingJournalContext>(options => options.UseNpgsql(connectionString));
 
     builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 
     var app = builder.Build();
 
@@ -79,6 +80,7 @@ public class Program
     app.UseHttpsRedirection();
     app.UseRouting();
 
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();

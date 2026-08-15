@@ -1,14 +1,12 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 
 using Server.DTO;
 using Server.Services;
 
 namespace Server.Controllers;
 
-[Route("api/[controller]")]
 [ApiController]
+[Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
   private readonly IAuthService _authService;

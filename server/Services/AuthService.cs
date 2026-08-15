@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
 using Server.Models;
@@ -76,7 +71,7 @@ public class AuthService : IAuthService
 
     var claims = new[]
     {
-      new Claim(JwtRegisteredClaimNames.Sub, user.UserName!),
+      new Claim(JwtRegisteredClaimNames.Sub, user.Id),
       new Claim(JwtRegisteredClaimNames.Email, user.Email!),
       new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
       new Claim(ClaimTypes.NameIdentifier, user.Id)
