@@ -47,4 +47,26 @@ public class InvestmentController : ControllerBase
 
     return BadRequest(new { Error = result.Error });
   }
+
+  [AllowAnonymous]
+  [HttpGet("price/{symbol}")]
+  public async Task<IActionResult> GetLivePrice(string symbol)
+  {
+    try 
+    {
+      using var client = new System.Net.Http.HttpClient();
+      var url = $"https://api.pro.coins.ph/openapi/quote/v1/ticker/price?symbol={symbol.ToUpper()}";
+      var response = await client.GetAsync(url);
+      
+      if (!response.IsSuccessStatusCode)
+        return BadRequest(new { Error = "Failed to fetch price from Coins.ph" });
+
+      var content = await response.Content.ReadAsStringAsync();
+      return Content(content, "application/json");
+    }
+    catch (Exception ex)
+    {
+      return StatusCode(500, new { Error = ex.Message });
+    }
+  }
 }

@@ -1,28 +1,73 @@
 <script setup>
-import { ref } from 'vue';
-import { computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { submitPurchase } from '@/services/investment';
 
-// Mock Data
-const totalDeployed = ref(85000.00);
-const currentValue = ref(102450.50);
+// DCA Campaigns Mock Data (Adjusted avgCost to PHP for realistic PnL representation)
+const dcaCampaigns = ref([
+  { id: 1, asset: 'Bitcoin', symbol: 'BTC', holdings: '1.25', avgCost: 2500000, currentPrice: 3400000, phase: 'Markup' },
+  { id: 2, asset: 'Ethereum', symbol: 'ETH', holdings: '15.4', avgCost: 120000, currentPrice: 180000, phase: 'Accumulation' },
+  { id: 3, asset: 'Solana', symbol: 'SOL', holdings: '145.0', avgCost: 4800, currentPrice: 8500, phase: 'Markup' },
+  { id: 4, asset: 'Chainlink', symbol: 'LINK', holdings: '500.0', avgCost: 800, currentPrice: 1100, phase: 'Accumulation' }
+]);
+
+// Live Coins.ph Price State
+const livePrices = ref({});
+let pollingInterval = null;
+
+const fetchPrices = async () => {
+  if (dcaCampaigns.value.length === 0) return;
+  
+  try {
+    const promises = dcaCampaigns.value.map(async (campaign) => {
+      const symbol = campaign.symbol.toUpperCase() + "PHP";
+      // Route through our backend proxy to completely bypass browser CORS restrictions
+      const url = `http://localhost:5234/api/investment/price/${symbol}`;
+      
+      const response = await fetch(url);
+      const json = await response.json();
+      
+      if (json && json.price) {
+        livePrices.value[campaign.symbol] = parseFloat(json.price);
+      }
+    });
+    
+    await Promise.all(promises);
+  } catch (error) {
+    console.error("Failed to fetch live prices:", error);
+  }
+};
+
+onMounted(() => {
+  // Fetch immediately on load
+  fetchPrices();
+  // Poll every 15 seconds to simulate live updates without relying on websockets
+  pollingInterval = setInterval(fetchPrices, 15000);
+});
+
+onUnmounted(() => {
+  if (pollingInterval) clearInterval(pollingInterval);
+});
+
+const getLivePrice = (symbol, fallbackPrice) => {
+  return livePrices.value[symbol] || fallbackPrice;
+};
+
+// Dynamic Aggregated Portfolio Metrics
+const totalDeployed = computed(() => {
+  return dcaCampaigns.value.reduce((total, campaign) => total + (parseFloat(campaign.holdings) * campaign.avgCost), 0);
+});
+
+const currentValue = computed(() => {
+  return dcaCampaigns.value.reduce((total, campaign) => {
+    const price = getLivePrice(campaign.symbol, campaign.currentPrice);
+    return total + (parseFloat(campaign.holdings) * price);
+  }, 0);
+});
+
 const unrealizedPnL = computed(() => currentValue.value - totalDeployed.value);
 const unrealizedPnLPercent = computed(() => ((currentValue.value - totalDeployed.value) / totalDeployed.value) * 100);
 
 // Asset Allocation Mock Data
-const assets = ref([
-  { name: 'Bitcoin (BTC)', color: '#fcb814', percentage: 45 },
-  { name: 'Ethereum (ETH)', color: '#749ab6', percentage: 35 },
-  { name: 'Solana (SOL)', color: '#c5d7e5', percentage: 20 },
-]);
-
-// DCA Campaigns Mock Data
-const dcaCampaigns = ref([
-  { id: 1, asset: 'Bitcoin', symbol: 'BTC', holdings: '1.25', avgCost: 42000, currentPrice: 58400, phase: 'Markup' },
-  { id: 2, asset: 'Ethereum', symbol: 'ETH', holdings: '15.4', avgCost: 2100, currentPrice: 3100, phase: 'Accumulation' },
-  { id: 3, asset: 'Solana', symbol: 'SOL', holdings: '145.0', avgCost: 85, currentPrice: 142, phase: 'Markup' },
-  { id: 4, asset: 'Chainlink', symbol: 'LINK', holdings: '500.0', avgCost: 15.5, currentPrice: 13.2, phase: 'Accumulation' }
-]);
 
 // New Purchase Modal State
 const isPurchaseModalOpen = ref(false);
@@ -98,11 +143,11 @@ const handlePurchase = async () => {
 };
 
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
 };
 
 const formatPercent = (value) => {
-  return new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100);
+  return new Intl.NumberFormat('en-PH', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value / 100);
 };
 
 const getPnLColor = (cost, current) => {
@@ -250,12 +295,12 @@ const getPnLBg = (cost, current) => {
               <td class="px-8 py-5 font-semibold text-text-muted">
                 {{ formatCurrency(campaign.avgCost) }}
               </td>
-              <td class="px-8 py-5 font-semibold text-text-main">
-                {{ formatCurrency(campaign.currentPrice) }}
+              <td class="px-8 py-5 font-semibold text-text-main transition-all duration-300">
+                {{ formatCurrency(getLivePrice(campaign.symbol, campaign.currentPrice)) }}
               </td>
-              <td class="px-8 py-5 text-right font-bold">
-                <span :class="getPnLColor(campaign.avgCost, campaign.currentPrice)">
-                  {{ campaign.currentPrice >= campaign.avgCost ? '+' : '' }}{{ formatPercent(((campaign.currentPrice - campaign.avgCost) / campaign.avgCost) * 100) }}
+              <td class="px-8 py-5 text-right font-bold transition-all duration-300">
+                <span :class="getPnLColor(campaign.avgCost, getLivePrice(campaign.symbol, campaign.currentPrice))">
+                  {{ getLivePrice(campaign.symbol, campaign.currentPrice) >= campaign.avgCost ? '+' : '' }}{{ formatPercent(((getLivePrice(campaign.symbol, campaign.currentPrice) - campaign.avgCost) / campaign.avgCost) * 100) }}
                 </span>
               </td>
               <td class="px-8 py-5 text-center">
