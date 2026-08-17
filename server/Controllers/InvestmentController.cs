@@ -48,7 +48,6 @@ public class InvestmentController : ControllerBase
     return BadRequest(new { Error = result.Error });
   }
 
-  [AllowAnonymous]
   [HttpGet("price/{symbol}")]
   public async Task<IActionResult> GetLivePrice(string symbol)
   {
@@ -67,6 +66,31 @@ public class InvestmentController : ControllerBase
     catch (Exception ex)
     {
       return StatusCode(500, new { Error = ex.Message });
+    }
+  }
+
+  [AllowAnonymous]
+  [HttpGet("logo/{symbol}")]
+  public async Task<IActionResult> GetCryptoLogo(string symbol)
+  {
+    try 
+    {
+      using var client = new System.Net.Http.HttpClient();
+      client.Timeout = TimeSpan.FromSeconds(5);
+      client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+      
+      var url = $"https://raw.githubusercontent.com/atomiclabs/cryptocurrency-icons/master/svg/color/{symbol.ToLower()}.svg";
+      var response = await client.GetAsync(url);
+      
+      if (!response.IsSuccessStatusCode)
+        return NotFound(new { Error = "Logo not found" });
+
+      var stream = await response.Content.ReadAsStreamAsync();
+      return File(stream, "image/svg+xml");
+    }
+    catch
+    {
+      return NotFound();
     }
   }
 }

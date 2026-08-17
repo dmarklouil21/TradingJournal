@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { submitPurchase } from '@/services/investment';
+import { submitPurchase, fetchCryptoPrice } from '@/services/investment';
+import { getAssetIcon } from '@/utils/getAssetIcon';
 
 // DCA Campaigns Mock Data (Adjusted avgCost to PHP for realistic PnL representation)
 const dcaCampaigns = ref([
@@ -20,11 +21,10 @@ const fetchPrices = async () => {
   try {
     const promises = dcaCampaigns.value.map(async (campaign) => {
       const symbol = campaign.symbol.toUpperCase() + "PHP";
-      // Route through our backend proxy to completely bypass browser CORS restrictions
-      const url = `http://localhost:5234/api/investment/price/${symbol}`;
       
-      const response = await fetch(url);
-      const json = await response.json();
+      const response = await fetchCryptoPrice(symbol);
+      
+      const json = response.data;
       
       if (json && json.price) {
         livePrices.value[campaign.symbol] = parseFloat(json.price);
@@ -38,9 +38,7 @@ const fetchPrices = async () => {
 };
 
 onMounted(() => {
-  // Fetch immediately on load
   fetchPrices();
-  // Poll every 15 seconds to simulate live updates without relying on websockets
   pollingInterval = setInterval(fetchPrices, 15000);
 });
 
@@ -66,8 +64,6 @@ const currentValue = computed(() => {
 
 const unrealizedPnL = computed(() => currentValue.value - totalDeployed.value);
 const unrealizedPnLPercent = computed(() => ((currentValue.value - totalDeployed.value) / totalDeployed.value) * 100);
-
-// Asset Allocation Mock Data
 
 // New Purchase Modal State
 const isPurchaseModalOpen = ref(false);
@@ -282,7 +278,13 @@ const getPnLBg = (cost, current) => {
             <tr v-for="campaign in dcaCampaigns" :key="campaign.id" class="hover:bg-gray-50/50 transition-colors group">
               <td class="px-8 py-5">
                 <div class="font-bold text-text-main flex items-center gap-2">
-                  <div class="w-8 h-8 rounded-full bg-light-blue flex items-center justify-center text-primary text-xs shrink-0">
+                  <img 
+                    :src="getAssetIcon(campaign.symbol)" 
+                    :alt="campaign.asset"
+                    class="w-8 h-8 shrink-0 drop-shadow-sm"
+                    @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='flex'"
+                  />
+                  <div class="w-8 h-8 rounded-full bg-light-blue items-center justify-center text-primary text-xs shrink-0 hidden">
                     {{ campaign.symbol[0] }}
                   </div>
                   {{ campaign.asset }}
