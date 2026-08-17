@@ -69,4 +69,40 @@ public class InvestmentService : IInvestmentService
       return (false, ex.Message);
     }
   }
+
+  public async Task<List<DCACampaignDTO>> GetCampaignsAsync(string userId)
+  {
+    var campaigns = await _context.DCACampaigns
+      .Include(c => c.Asset)
+      .Where(c => c.UserId == userId)
+      .Select(c => new 
+      {
+        Id = c.Id,
+        Asset = c.Asset!.Name,
+        Symbol = c.Asset.Symbol,
+        Phase = c.SystemPhase.ToString(),
+        Logs = _context.InvestmentLogs.Where(l => l.CampaignId == c.Id).ToList()
+      })
+      .ToListAsync();
+
+    var dtoList = campaigns.Select(c => 
+    {
+      var totalHoldings = c.Logs.Sum(l => l.AmountTokens);
+      var totalCost = c.Logs.Sum(l => (l.AmountTokens * l.PurchasePrice) + l.Fees);
+      var avgCost = totalHoldings > 0 ? totalCost / totalHoldings : 0;
+
+      return new DCACampaignDTO
+      {
+        Id = c.Id,
+        Asset = c.Asset,
+        Symbol = c.Symbol,
+        Phase = c.Phase,
+        Holdings = totalHoldings.ToString("0.######"), 
+        AvgCost = avgCost,
+        CurrentPrice = 0 // Frontend handles this
+      };
+    }).ToList();
+
+    return dtoList;
+  }
 }

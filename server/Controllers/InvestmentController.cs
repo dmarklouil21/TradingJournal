@@ -48,6 +48,19 @@ public class InvestmentController : ControllerBase
     return BadRequest(new { Error = result.Error });
   }
 
+  [HttpGet("campaigns")]
+  public async Task<IActionResult> GetCampaigns()
+  {
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userId))
+    {
+      return Unauthorized(new { Error = "User ID not found in token." });
+    }
+
+    var result = await _investmentService.GetCampaignsAsync(userId);
+    return Ok(result);
+  }
+
   [HttpGet("price/{symbol}")]
   public async Task<IActionResult> GetLivePrice(string symbol)
   {
@@ -69,24 +82,39 @@ public class InvestmentController : ControllerBase
     }
   }
 
+  private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte[]> _iconCache = new();
+
   [AllowAnonymous]
   [HttpGet("logo/{symbol}")]
   public async Task<IActionResult> GetCryptoLogo(string symbol)
   {
+    var key = symbol.ToLower();
+    
+    // Serve from server RAM immediately if we've downloaded it once
+    if (_iconCache.TryGetValue(key, out var cachedSvg))
+    {
+      return File(cachedSvg, "image/svg+xml");
+    }
+
     try 
     {
       using var client = new System.Net.Http.HttpClient();
       client.Timeout = TimeSpan.FromSeconds(5);
-      client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+      client.DefaultRequestHeaders.Add("User-Agent", "TradingJournal/1.0");
       
-      var url = $"https://raw.githubusercontent.com/atomiclabs/cryptocurrency-icons/master/svg/color/{symbol.ToLower()}.svg";
+      // Use the stable npm registry instead of raw github to avoid rate limiting
+      var url = $"https://cdn.jsdelivr.net/npm/cryptocurrency-icons/svg/color/{key}.svg";
       var response = await client.GetAsync(url);
       
       if (!response.IsSuccessStatusCode)
         return NotFound(new { Error = "Logo not found" });
 
-      var stream = await response.Content.ReadAsStreamAsync();
-      return File(stream, "image/svg+xml");
+      var svgBytes = await response.Content.ReadAsByteArrayAsync();
+      
+      // Cache it forever in RAM
+      _iconCache[key] = svgBytes;
+
+      return File(svgBytes, "image/svg+xml");
     }
     catch
     {

@@ -1,19 +1,24 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { submitPurchase, fetchCryptoPrice } from '@/services/investment';
+import { submitPurchase, fetchCryptoPrice, fetchCampaigns } from '@/services/investment';
 import { getAssetIcon } from '@/utils/getAssetIcon';
 
-// DCA Campaigns Mock Data (Adjusted avgCost to PHP for realistic PnL representation)
-const dcaCampaigns = ref([
-  { id: 1, asset: 'Bitcoin', symbol: 'BTC', holdings: '1.25', avgCost: 2500000, currentPrice: 3400000, phase: 'Markup' },
-  { id: 2, asset: 'Ethereum', symbol: 'ETH', holdings: '15.4', avgCost: 120000, currentPrice: 180000, phase: 'Accumulation' },
-  { id: 3, asset: 'Solana', symbol: 'SOL', holdings: '145.0', avgCost: 4800, currentPrice: 8500, phase: 'Markup' },
-  { id: 4, asset: 'Chainlink', symbol: 'LINK', holdings: '500.0', avgCost: 800, currentPrice: 1100, phase: 'Accumulation' }
-]);
+// Active DCA Campaigns mapped from the Database
+const dcaCampaigns = ref([]);
 
 // Live Coins.ph Price State
 const livePrices = ref({});
 let pollingInterval = null;
+
+const loadCampaigns = async () => {
+  try {
+    const res = await fetchCampaigns();
+    dcaCampaigns.value = res.data;
+    fetchPrices(); // Fetch live prices for the newly loaded assets
+  } catch (ex) {
+    console.error("Failed to load campaigns:", ex);
+  }
+};
 
 const fetchPrices = async () => {
   if (dcaCampaigns.value.length === 0) return;
@@ -38,7 +43,7 @@ const fetchPrices = async () => {
 };
 
 onMounted(() => {
-  fetchPrices();
+  loadCampaigns();
   pollingInterval = setInterval(fetchPrices, 15000);
 });
 
@@ -63,7 +68,51 @@ const currentValue = computed(() => {
 });
 
 const unrealizedPnL = computed(() => currentValue.value - totalDeployed.value);
-const unrealizedPnLPercent = computed(() => ((currentValue.value - totalDeployed.value) / totalDeployed.value) * 100);
+const unrealizedPnLPercent = computed(() => {
+  if (totalDeployed.value === 0) return 0;
+  return ((currentValue.value - totalDeployed.value) / totalDeployed.value) * 100;
+});
+
+// Dynamic Asset Allocation Logic
+const generateColor = (index) => {
+  // Golden angle approximation (137.5 degrees) creates visually distinct, infinite hues
+  const hue = (index * 137.5) % 360;
+  // Saturation 70% and Lightness 60% perfectly matches the premium, modern aesthetic
+  return `hsl(${hue}, 70%, 60%)`;
+};
+
+const assetAllocation = computed(() => {
+  if (dcaCampaigns.value.length === 0 || currentValue.value === 0) return [];
+  
+  let currentPercentage = 0;
+  
+  return dcaCampaigns.value
+    .map(campaign => {
+      const price = getLivePrice(campaign.symbol, campaign.currentPrice);
+      const value = parseFloat(campaign.holdings) * price;
+      return {
+        name: campaign.symbol,
+        value: value,
+        rawPercentage: (value / currentValue.value) * 100
+      };
+    })
+    .sort((a, b) => b.value - a.value) // Sort largest allocation to smallest
+    .map((asset, index) => {
+      asset.percentage = asset.rawPercentage.toFixed(1);
+      asset.color = generateColor(index); // Infinite distinct color generation
+      
+      const start = currentPercentage;
+      currentPercentage += asset.rawPercentage;
+      asset.gradientStop = `${asset.color} ${start}% ${currentPercentage}%`;
+      return asset;
+    });
+});
+
+const pieChartStyle = computed(() => {
+  if (assetAllocation.value.length === 0) return 'background: #f3f4f6;'; // Empty state
+  const gradients = assetAllocation.value.map(a => a.gradientStop).join(', ');
+  return `background: conic-gradient(${gradients});`;
+});
 
 // New Purchase Modal State
 const isPurchaseModalOpen = ref(false);
@@ -92,8 +141,51 @@ const closePurchaseModal = () => {
     symbol: '',
     amount: null,
     price: null,
+    fees: null,
     date: new Date().toISOString().split('T')[0]
   };
+};
+
+// Manage Campaign (Sell / Phase) Modal State
+const isManageModalOpen = ref(false);
+const selectedCampaign = ref(null);
+const manageTab = ref('sell'); // 'sell' or 'phase'
+const newSale = ref({
+  amount: null,
+  price: null,
+  fees: null,
+  date: new Date().toISOString().split('T')[0]
+});
+const newPhase = ref('');
+
+const openManageModal = (campaign) => {
+  selectedCampaign.value = campaign;
+  newPhase.value = campaign.phase;
+  isManageModalOpen.value = true;
+};
+
+const closeManageModal = () => {
+  isManageModalOpen.value = false;
+  selectedCampaign.value = null;
+  errorMessage.value = '';
+  newSale.value = {
+    amount: null,
+    price: null,
+    fees: null,
+    date: new Date().toISOString().split('T')[0]
+  };
+};
+
+const totalSaleProceeds = computed(() => {
+  return ((newSale.value.amount || 0) * (newSale.value.price || 0)) - ((newSale.value.fees || 0) * (newSale.value.price || 0));
+});
+
+const handleSale = async () => {
+  console.log("Mock Sale Submission", newSale.value);
+};
+
+const handleChangePhase = async () => {
+  console.log("Mock Phase Change Submission", newPhase.value);
 };
 
 const handlePurchase = async () => {
@@ -114,6 +206,7 @@ const handlePurchase = async () => {
     if (res.status === 200) {
       successMessage.value = `Successfully logged ${payload.amountTokens} ${payload.symbol} to your DCA Campaign!`;
       closePurchaseModal();
+      loadCampaigns(); // Refresh the table to show the new data
       
       // Auto-hide the toast after 4 seconds
       setTimeout(() => {
@@ -175,10 +268,10 @@ const getPnLBg = (cost, current) => {
     </header>
 
     <!-- Top Grid: Deployed Capital & Allocation -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
       
       <!-- Capital Deployed vs Current Value -->
-      <div class="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-gray-100 relative overflow-hidden group flex flex-col justify-between">
+      <div class="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-gray-100 relative overflow-hidden group flex flex-col justify-between h-full">
         <div class="absolute -bottom-24 -right-24 w-64 h-64 bg-primary rounded-full opacity-5 group-hover:scale-110 transition-transform duration-700"></div>
         
         <h3 class="text-lg font-bold text-text-main mb-6">Capital Deployed vs. Current Value</h3>
@@ -213,24 +306,28 @@ const getPnLBg = (cost, current) => {
       </div>
 
       <!-- Asset Allocation (CSS Pie Chart) -->
-      <div class="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col items-center justify-center">
-        <h3 class="text-lg font-bold text-text-main w-full mb-6 text-center">Asset Allocation</h3>
+      <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col h-full min-h-[320px]">
+        <h3 class="text-lg font-bold text-text-main w-full">Asset Allocation</h3>
         
-        <div class="relative w-40 h-40 rounded-full shadow-inner mb-6 transform hover:scale-105 transition-transform duration-500"
-             style="background: conic-gradient(#fcb814 0% 45%, #749ab6 45% 80%, #c5d7e5 80% 100%);">
-          <!-- Inner circle for donut effect -->
-          <div class="absolute inset-4 bg-white rounded-full shadow-sm flex items-center justify-center">
-            <span class="font-bold text-text-muted text-sm">3 Assets</span>
-          </div>
-        </div>
-
-        <div class="w-full space-y-3">
-          <div v-for="asset in assets" :key="asset.name" class="flex items-center justify-between text-sm">
-            <div class="flex items-center gap-2">
-              <div class="w-3 h-3 rounded-full" :style="`background-color: ${asset.color}`"></div>
-              <span class="font-medium text-text-main">{{ asset.name }}</span>
+        <div class="flex items-center justify-between gap-6 flex-1">
+          <!-- Scaled down Pie Chart on the Left -->
+          <div class="relative w-32 h-32 rounded-full shadow-inner transform hover:scale-105 transition-transform duration-500 shrink-0"
+               :style="pieChartStyle">
+            <!-- Inner circle for donut effect -->
+            <div class="absolute inset-4 bg-white rounded-full shadow-sm flex items-center justify-center">
+              <span class="font-bold text-text-muted text-xs">{{ assetAllocation.length }} Assets</span>
             </div>
-            <span class="font-bold text-text-muted">{{ asset.percentage }}%</span>
+          </div>
+
+          <!-- Condensed Legend on the Right -->
+          <div class="w-full space-y-2 flex-1">
+            <div v-for="asset in assetAllocation" :key="asset.name" class="flex items-center justify-between text-xs">
+              <div class="flex items-center gap-1.5">
+                <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="`background-color: ${asset.color}`"></div>
+                <span class="font-semibold text-text-main truncate max-w-[60px]" :title="asset.name">{{ asset.name }}</span>
+              </div>
+              <span class="font-bold text-text-muted shrink-0">{{ asset.percentage }}%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -272,10 +369,11 @@ const getPnLBg = (cost, current) => {
               <th class="px-8 py-4 font-semibold">Current Price</th>
               <th class="px-8 py-4 font-semibold text-right">Unrealized PnL</th>
               <th class="px-8 py-4 font-semibold text-center">Phase</th>
+              <!-- <th class="px-8 py-4 font-semibold text-right">Actions</th> -->
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-for="campaign in dcaCampaigns" :key="campaign.id" class="hover:bg-gray-50/50 transition-colors group">
+            <tr v-for="campaign in dcaCampaigns" @click="openManageModal(campaign)" :key="campaign.id" class="hover:bg-gray-50/50 transition-colors group">
               <td class="px-8 py-5">
                 <div class="font-bold text-text-main flex items-center gap-2">
                   <img 
@@ -287,8 +385,10 @@ const getPnLBg = (cost, current) => {
                   <div class="w-8 h-8 rounded-full bg-light-blue items-center justify-center text-primary text-xs shrink-0 hidden">
                     {{ campaign.symbol[0] }}
                   </div>
-                  {{ campaign.asset }}
-                  <span class="text-text-muted font-medium text-sm ml-1">{{ campaign.symbol }}</span>
+                  <div class="flex flex-col">
+                    {{ campaign.symbol }}
+                    <span class="text-text-muted font-medium text-xs">{{ campaign.asset }}</span>
+                  </div>
                 </div>
               </td>
               <td class="px-8 py-5 font-semibold text-text-main">
@@ -315,6 +415,11 @@ const getPnLBg = (cost, current) => {
                   {{ campaign.phase }}
                 </span>
               </td>
+              <!-- <td class="px-8 py-5 text-right">
+                <button @click="openManageModal(campaign)" class="px-4 py-1.5 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
+                  Manage
+                </button>
+              </td> -->
             </tr>
           </tbody>
         </table>
@@ -386,8 +491,107 @@ const getPnLBg = (cost, current) => {
         </form>
       </div>
     </div>
+    <!-- Manage Campaign Modal -->
+    <div v-if="isManageModalOpen" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-[fadeIn_0.2s_ease-out]">
+        <button @click="closeManageModal" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <div class="flex items-center gap-3 mb-6">
+          <img :src="getAssetIcon(selectedCampaign?.symbol)" class="w-10 h-10 drop-shadow-sm" />
+          <div>
+            <h2 class="text-2xl font-extrabold text-text-main leading-tight">Manage {{ selectedCampaign?.asset }}</h2>
+            <p class="text-text-muted text-sm font-medium">{{ selectedCampaign?.holdings }} Tokens currently deployed</p>
+          </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="flex bg-bg-gray/50 rounded-xl p-1 mb-6">
+          <button @click="manageTab = 'sell'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all" :class="manageTab === 'sell' ? 'bg-white shadow-sm text-primary' : 'text-text-muted hover:text-text-main'">Log Sale</button>
+          <button @click="manageTab = 'phase'" class="flex-1 py-2 text-sm font-bold rounded-lg transition-all" :class="manageTab === 'phase' ? 'bg-white shadow-sm text-primary' : 'text-text-muted hover:text-text-main'">Change Phase</button>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="errorMessage" class="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 transition-all">
+          <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <p class="text-sm font-medium text-red-700 leading-tight">{{ errorMessage }}</p>
+        </div>
+
+        <!-- Sell Form -->
+        <form v-if="manageTab === 'sell'" @submit.prevent="handleSale" class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Amount (Units)</label>
+              <input v-model="newSale.amount" type="number" step="any" min="0" :max="selectedCampaign?.holdings" required placeholder="0.05" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Sell Price</label>
+              <input v-model="newSale.price" type="number" step="any" min="0" required placeholder="65000" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Fees (Token)</label>
+              <input v-model="newSale.fees" type="number" step="any" min="0" required placeholder="0.001" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Execution Date</label>
+              <input v-model="newSale.date" type="date" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all outline-none text-text-main text-sm" />
+            </div>
+          </div>
+
+          <!-- Proceeds Calculator -->
+          <div class="p-4 bg-green-50 rounded-xl flex justify-between items-center border border-green-100">
+            <span class="text-sm font-bold text-green-800">Total Proceeds</span>
+            <span class="text-xl font-black text-green-600">{{ formatCurrency(totalSaleProceeds) }}</span>
+          </div>
+
+          <div class="flex gap-4 pt-2">
+            <button type="button" @click="closeManageModal" class="flex-1 py-3.5 rounded-xl bg-gray-100 text-text-muted font-bold hover:bg-gray-200 transition-colors" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" class="flex-1 py-3.5 rounded-xl bg-primary text-white font-bold shadow-md shadow-primary/30 hover:bg-opacity-90 transition-all disabled:opacity-70" :disabled="isSubmitting">
+              {{ isSubmitting ? 'Processing...' : 'Log Sale' }}
+            </button>
+          </div>
+        </form>
+
+        <!-- Phase Form -->
+        <form v-if="manageTab === 'phase'" @submit.prevent="handleChangePhase" class="space-y-6">
+          <div>
+            <label class="block text-sm font-semibold text-text-main mb-3">System Phase</label>
+            <div class="grid grid-cols-3 gap-3">
+              <button type="button" @click="newPhase = 'PhaseOne'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseOne' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 1<br/><span class="text-[10px] font-semibold opacity-70">Accumulation</span></button>
+              <button type="button" @click="newPhase = 'PhaseTwo'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseTwo' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 2<br/><span class="text-[10px] font-semibold opacity-70">Markup</span></button>
+              <button type="button" @click="newPhase = 'PhaseThree'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseThree' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 3<br/><span class="text-[10px] font-semibold opacity-70">Distribution</span></button>
+            </div>
+          </div>
+
+          <div class="flex gap-4 pt-2">
+            <button type="button" @click="closeManageModal" class="flex-1 py-3.5 rounded-xl bg-gray-100 text-text-muted font-bold hover:bg-gray-200 transition-colors" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" class="flex-1 py-3.5 rounded-xl bg-text-main text-white font-bold shadow-md hover:bg-black transition-all disabled:opacity-70" :disabled="isSubmitting || newPhase === selectedCampaign?.phase">
+              {{ isSubmitting ? 'Updating...' : 'Save Phase' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Premium thin scrollbar for the asset legend */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #d1d5db;
+}
 </style>

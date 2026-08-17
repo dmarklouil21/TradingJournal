@@ -9,3 +9,8 @@ export async function fetchCryptoPrice(symbol) {
   const response = await apiClient.get(`investment/price/${symbol}`);
   return response;
 }
+
+export async function fetchCampaigns() {
+  const response = await apiClient.get("investment/campaigns");
+  return response;
+}
