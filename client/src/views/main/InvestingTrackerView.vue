@@ -142,6 +142,7 @@ const chartPoints = computed(() => {
   if (currentValue.value > maxTotal) maxTotal = currentValue.value * 1.2;
   if (maxTotal === 0) maxTotal = 1;
   
+  let currentHoldings = 0;
   let runningTotal = 0;
   const points = [];
   
@@ -149,8 +150,16 @@ const chartPoints = computed(() => {
   points.push(`0,${100 - (0 / maxTotal * 100)}`);
   
   allLogs.forEach(log => {
-    // Add transaction to running total. Sales natively drop this down.
-    runningTotal += (log.amountTokens * log.purchasePrice) + log.fees;
+    if (log.amountTokens > 0) {
+      // Purchase
+      runningTotal += (log.amountTokens * log.purchasePrice) + log.fees;
+      currentHoldings += log.amountTokens;
+    } else {
+      // Sale: subtract proportional true cost basis, ignoring sale proceeds
+      const avgCostAtSale = currentHoldings > 0 ? runningTotal / currentHoldings : 0;
+      currentHoldings += log.amountTokens; 
+      runningTotal += (log.amountTokens * avgCostAtSale);
+    }
     
     // X is percentage of time passed. Y is percentage of max value.
     const x = ((log.timestamp - startTime) / timeSpan) * 100;
@@ -705,7 +714,7 @@ const getPnLBg = (cost, current) => {
               
               <button type="button" @click="newPhase = 'PhaseThree'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseThree' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 3<br/><span class="text-[10px] font-semibold opacity-70 text-center block">The Technical Overextension Warning</span></button>
               
-              <button type="button" @click="newPhase = 'PhaseFour'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseFour' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 4<br/><span class="text-[10px] font-semibold opacity-70">The Cool-Down & Restart Rule</span></button>
+              <button type="button" @click="newPhase = 'PhaseFour'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseFour' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 4<br/><span class="text-[10px] font-semibold opacity-70">The DCA-Out Protocol</span></button>
             </div>
           </div>
 

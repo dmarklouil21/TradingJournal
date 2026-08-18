@@ -88,15 +88,38 @@ public class InvestmentService : IInvestmentService
     var dtoList = campaigns
       .Select(c => 
       {
-        var totalHoldings = c.Logs.Sum(l => l.AmountTokens);
-        var totalCost = c.Logs.Sum(l => (l.AmountTokens * l.PurchasePrice) + l.Fees);
-        var avgCost = totalHoldings > 0 ? totalCost / totalHoldings : 0;
+        decimal currentHoldings = 0;
+        decimal currentTotalCost = 0;
+
+        // Calculate Rolling Standard Average Cost Basis
+        foreach (var log in c.Logs.OrderBy(l => l.ExecutionDate))
+        {
+          if (log.AmountTokens > 0)
+          {
+            // Purchase adds to total cost
+            currentTotalCost += (log.AmountTokens * log.PurchasePrice) + log.Fees;
+            currentHoldings += log.AmountTokens;
+          }
+          else
+          {
+            // Sale proportionally removes from total cost based on the CURRENT average cost
+            var avgCostAtSale = currentHoldings > 0 ? currentTotalCost / currentHoldings : 0;
+            
+            // AmountTokens is negative, so we add it to subtract
+            currentHoldings += log.AmountTokens;
+            
+            // Subtract the exact cost basis of the tokens sold (ignoring sale proceeds for Avg Cost)
+            currentTotalCost += (log.AmountTokens * avgCostAtSale);
+          }
+        }
+
+        var finalAvgCost = currentHoldings > 0 ? currentTotalCost / currentHoldings : 0;
 
         return new 
         {
           Data = c,
-          TotalHoldings = totalHoldings,
-          AvgCost = avgCost
+          TotalHoldings = currentHoldings,
+          AvgCost = finalAvgCost
         };
       })
       .Where(x => x.TotalHoldings > 0) 
