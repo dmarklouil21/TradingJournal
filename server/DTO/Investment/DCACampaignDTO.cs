@@ -9,4 +9,5 @@ public class DCACampaignDTO
   public decimal AvgCost { get; set; }
   public decimal CurrentPrice { get; set; }
   public string Phase { get; set; } = string.Empty;
+  public List<InvestmentLogDTO> Logs { get; set; } = new();
 }

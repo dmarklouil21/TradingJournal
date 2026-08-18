@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { submitPurchase, fetchCryptoPrice, fetchCampaigns } from '@/services/investment';
+import { submitPurchase, fetchCryptoPrice, fetchCampaigns, submitSale, submitPhaseUpdate } from '@/services/investment';
 import { getAssetIcon } from '@/utils/getAssetIcon';
 
 // Active DCA Campaigns mapped from the Database
@@ -14,7 +14,7 @@ const loadCampaigns = async () => {
   try {
     const res = await fetchCampaigns();
     dcaCampaigns.value = res.data;
-    fetchPrices(); // Fetch live prices for the newly loaded assets
+    fetchPrices(); 
   } catch (ex) {
     console.error("Failed to load campaigns:", ex);
   }
@@ -51,13 +51,11 @@ onUnmounted(() => {
   if (pollingInterval) clearInterval(pollingInterval);
 });
 
-const getLivePrice = (symbol, fallbackPrice) => {
-  return livePrices.value[symbol] || fallbackPrice;
-};
-
-// Dynamic Aggregated Portfolio Metrics
+// Summary Statistics
 const totalDeployed = computed(() => {
-  return dcaCampaigns.value.reduce((total, campaign) => total + (parseFloat(campaign.holdings) * campaign.avgCost), 0);
+  return dcaCampaigns.value.reduce((total, campaign) => {
+    return total + (parseFloat(campaign.holdings) * campaign.avgCost);
+  }, 0);
 });
 
 const currentValue = computed(() => {
@@ -75,9 +73,7 @@ const unrealizedPnLPercent = computed(() => {
 
 // Dynamic Asset Allocation Logic
 const generateColor = (index) => {
-  // Golden angle approximation (137.5 degrees) creates visually distinct, infinite hues
   const hue = (index * 137.5) % 360;
-  // Saturation 70% and Lightness 60% perfectly matches the premium, modern aesthetic
   return `hsl(${hue}, 70%, 60%)`;
 };
 
@@ -96,10 +92,10 @@ const assetAllocation = computed(() => {
         rawPercentage: (value / currentValue.value) * 100
       };
     })
-    .sort((a, b) => b.value - a.value) // Sort largest allocation to smallest
+    .sort((a, b) => b.value - a.value)
     .map((asset, index) => {
       asset.percentage = asset.rawPercentage.toFixed(1);
-      asset.color = generateColor(index); // Infinite distinct color generation
+      asset.color = generateColor(index);
       
       const start = currentPercentage;
       currentPercentage += asset.rawPercentage;
@@ -109,13 +105,84 @@ const assetAllocation = computed(() => {
 });
 
 const pieChartStyle = computed(() => {
-  if (assetAllocation.value.length === 0) return 'background: #f3f4f6;'; // Empty state
+  if (assetAllocation.value.length === 0) return 'background: #f3f4f6;';
   const gradients = assetAllocation.value.map(a => a.gradientStop).join(', ');
   return `background: conic-gradient(${gradients});`;
 });
 
+// Native Charting Logic for Asset Growth Over Time
+const chartPoints = computed(() => {
+  if (dcaCampaigns.value.length === 0) return [];
+  
+  // Flatten and aggregate all logs
+  const allLogs = [];
+  dcaCampaigns.value.forEach(campaign => {
+    if (campaign.logs) {
+      campaign.logs.forEach(log => {
+        allLogs.push({
+          timestamp: new Date(log.executionDate).getTime(),
+          amountTokens: parseFloat(log.amountTokens),
+          purchasePrice: parseFloat(log.purchasePrice),
+          fees: parseFloat(log.fees)
+        });
+      });
+    }
+  });
+  
+  if (allLogs.length === 0) return [];
+  
+  allLogs.sort((a, b) => a.timestamp - b.timestamp);
+  
+  const startTime = allLogs[0].timestamp;
+  const endTime = Date.now();
+  const timeSpan = endTime - startTime || 1; // Prevent division by 0
+  
+  // Calculate max possible value for Y-axis scaling
+  let maxTotal = totalDeployed.value * 1.2; 
+  if (currentValue.value > maxTotal) maxTotal = currentValue.value * 1.2;
+  if (maxTotal === 0) maxTotal = 1;
+  
+  let runningTotal = 0;
+  const points = [];
+  
+  // Start the chart at the very first transaction
+  points.push(`0,${100 - (0 / maxTotal * 100)}`);
+  
+  allLogs.forEach(log => {
+    // Add transaction to running total. Sales natively drop this down.
+    runningTotal += (log.amountTokens * log.purchasePrice) + log.fees;
+    
+    // X is percentage of time passed. Y is percentage of max value.
+    const x = ((log.timestamp - startTime) / timeSpan) * 100;
+    const y = 100 - (runningTotal / maxTotal * 100);
+    
+    points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+  });
+  
+  // Final dot shoots up (or down) to the exact Live Value right now
+  const finalLiveY = 100 - (currentValue.value / maxTotal * 100);
+  points.push(`100,${finalLiveY.toFixed(1)}`);
+  
+  return points;
+});
+
+const chartPath = computed(() => {
+  const points = chartPoints.value;
+  if (points.length === 0) return "M0,100 L100,100";
+  return `M${points.join(' L')}`;
+});
+
+const chartAreaPath = computed(() => {
+  const points = chartPoints.value;
+  if (points.length === 0) return "M0,100 L100,100 Z";
+  return `M${points.join(' L')} L100,100 L0,100 Z`;
+});
+
 // New Purchase Modal State
 const isPurchaseModalOpen = ref(false);
+const isSubmitting = ref(false);
+const errorMessage = ref('');
+const successMessage = ref('');
 const newPurchase = ref({
   asset: '',
   symbol: '',
@@ -129,9 +196,9 @@ const totalPurchaseCost = computed(() => {
   return ((newPurchase.value.amount || 0) * (newPurchase.value.price || 0)) + ((newPurchase.value.fees || 0) * (newPurchase.value.price || 0));
 });
 
-const isSubmitting = ref(false);
-const errorMessage = ref('');
-const successMessage = ref('');
+const openPurchaseModal = () => {
+  isPurchaseModalOpen.value = true;
+};
 
 const closePurchaseModal = () => {
   isPurchaseModalOpen.value = false;
@@ -149,7 +216,7 @@ const closePurchaseModal = () => {
 // Manage Campaign (Sell / Phase) Modal State
 const isManageModalOpen = ref(false);
 const selectedCampaign = ref(null);
-const manageTab = ref('sell'); // 'sell' or 'phase'
+const manageTab = ref('sell');
 const newSale = ref({
   amount: null,
   price: null,
@@ -161,6 +228,7 @@ const newPhase = ref('');
 const openManageModal = (campaign) => {
   selectedCampaign.value = campaign;
   newPhase.value = campaign.phase;
+  manageTab.value = 'sell';
   isManageModalOpen.value = true;
 };
 
@@ -181,11 +249,72 @@ const totalSaleProceeds = computed(() => {
 });
 
 const handleSale = async () => {
-  console.log("Mock Sale Submission", newSale.value);
+  if (isSubmitting.value) return;
+  
+  if (!newSale.value.amount || !newSale.value.price || !newSale.value.date) {
+    errorMessage.value = 'Please fill in all required fields.';
+    return;
+  }
+  
+  if (newSale.value.amount > parseFloat(selectedCampaign.value.holdings)) {
+    errorMessage.value = 'Cannot sell more than your current holdings.';
+    return;
+  }
+  
+  try {
+    isSubmitting.value = true;
+    errorMessage.value = '';
+    
+    const payload = {
+      campaignId: selectedCampaign.value.id,
+      amountTokens: parseFloat(newSale.value.amount),
+      sellPrice: parseFloat(newSale.value.price),
+      fees: parseFloat(newSale.value.fees || 0),
+      executionDate: new Date(newSale.value.date).toISOString()
+    };
+    
+    const res = await submitSale(payload);
+    
+    if (res.status === 200) {
+      successMessage.value = `Successfully logged sale of ${payload.amountTokens} ${selectedCampaign.value.symbol}!`;
+      closeManageModal();
+      loadCampaigns(); 
+      setTimeout(() => { successMessage.value = ''; }, 4000);
+    }
+  } catch (error) {
+    errorMessage.value = error.response?.data?.error || 'Failed to log sale.';
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 const handleChangePhase = async () => {
-  console.log("Mock Phase Change Submission", newPhase.value);
+  if (isSubmitting.value) return;
+  if (newPhase.value === selectedCampaign.value.phase) return;
+  
+  try {
+    isSubmitting.value = true;
+    errorMessage.value = '';
+    console.log(`Campaign ID: ${selectedCampaign.value.id}`)
+    console.log(`New Phase: ${newPhase.value}`);
+    const payload = {
+      campaignId: selectedCampaign.value.id,
+      newPhase: newPhase.value
+    };
+    
+    const res = await submitPhaseUpdate(payload);
+    
+    if (res.status === 200) {
+      successMessage.value = `Successfully updated phase to ${newPhase.value}!`;
+      closeManageModal();
+      loadCampaigns(); 
+      setTimeout(() => { successMessage.value = ''; }, 4000);
+    }
+  } catch (error) {
+    errorMessage.value = error.response?.data?.error || 'Failed to update phase.';
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
 const handlePurchase = async () => {
@@ -206,9 +335,8 @@ const handlePurchase = async () => {
     if (res.status === 200) {
       successMessage.value = `Successfully logged ${payload.amountTokens} ${payload.symbol} to your DCA Campaign!`;
       closePurchaseModal();
-      loadCampaigns(); // Refresh the table to show the new data
+      loadCampaigns(); 
       
-      // Auto-hide the toast after 4 seconds
       setTimeout(() => {
         successMessage.value = '';
       }, 4000);
@@ -231,6 +359,10 @@ const handlePurchase = async () => {
   }
 };
 
+const getLivePrice = (symbol, fallbackPrice) => {
+  return livePrices.value[symbol] || fallbackPrice;
+};
+
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
 };
@@ -242,6 +374,7 @@ const formatPercent = (value) => {
 const getPnLColor = (cost, current) => {
   return current >= cost ? 'text-green-600' : 'text-red-500';
 };
+
 const getPnLBg = (cost, current) => {
   return current >= cost ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700';
 };
@@ -343,13 +476,24 @@ const getPnLBg = (cost, current) => {
           <option>All Time</option>
         </select>
       </div>
-      <!-- Mock Line Chart -->
+      <!-- Native SVG Real-Time Line Chart -->
       <div class="h-48 w-full relative flex items-end">
-        <!-- SVG Mock Line -->
-        <svg class="w-full h-full text-primary drop-shadow-md" preserveAspectRatio="none" viewBox="0 0 100 100" fill="none" stroke="currentColor">
-          <path d="M0,90 Q10,85 20,70 T40,65 T60,40 T80,30 T100,10" stroke-width="3" stroke-linecap="round" class="animate-[dash_2s_ease-out_forwards]" stroke-dasharray="200" stroke-dashoffset="0"/>
-          <!-- Gradient Fill below line -->
-          <path d="M0,90 Q10,85 20,70 T40,65 T60,40 T80,30 T100,10 L100,100 L0,100 Z" fill="currentColor" class="opacity-10" stroke="none" />
+        <svg class="w-full h-full drop-shadow-md" preserveAspectRatio="none" viewBox="0 0 100 100" fill="none">
+          <!-- Area Fill Gradient -->
+          <path :d="chartAreaPath" fill="url(#chartGradient)" class="opacity-30 transition-all duration-1000 ease-out" stroke="none" />
+          
+          <!-- Data Path -->
+          <path :d="chartPath" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-primary transition-all duration-1000 ease-out" stroke="currentColor" />
+          
+          <!-- Glowing End Dot (Live Value) -->
+          <circle cx="100" :cy="chartPoints.length ? chartPoints[chartPoints.length-1].split(',')[1] : 100" r="2.5" class="text-primary transition-all duration-1000 animate-pulse" fill="currentColor" />
+
+          <defs>
+            <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#3b82f6" stop-opacity="1" />
+              <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+            </linearGradient>
+          </defs>
         </svg>
       </div>
     </div>
@@ -369,7 +513,6 @@ const getPnLBg = (cost, current) => {
               <th class="px-8 py-4 font-semibold">Current Price</th>
               <th class="px-8 py-4 font-semibold text-right">Unrealized PnL</th>
               <th class="px-8 py-4 font-semibold text-center">Phase</th>
-              <!-- <th class="px-8 py-4 font-semibold text-right">Actions</th> -->
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
@@ -415,11 +558,6 @@ const getPnLBg = (cost, current) => {
                   {{ campaign.phase }}
                 </span>
               </td>
-              <!-- <td class="px-8 py-5 text-right">
-                <button @click="openManageModal(campaign)" class="px-4 py-1.5 text-xs font-bold text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors">
-                  Manage
-                </button>
-              </td> -->
             </tr>
           </tbody>
         </table>
@@ -560,10 +698,14 @@ const getPnLBg = (cost, current) => {
         <form v-if="manageTab === 'phase'" @submit.prevent="handleChangePhase" class="space-y-6">
           <div>
             <label class="block text-sm font-semibold text-text-main mb-3">System Phase</label>
-            <div class="grid grid-cols-3 gap-3">
-              <button type="button" @click="newPhase = 'PhaseOne'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseOne' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 1<br/><span class="text-[10px] font-semibold opacity-70">Accumulation</span></button>
-              <button type="button" @click="newPhase = 'PhaseTwo'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseTwo' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 2<br/><span class="text-[10px] font-semibold opacity-70">Markup</span></button>
-              <button type="button" @click="newPhase = 'PhaseThree'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseThree' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 3<br/><span class="text-[10px] font-semibold opacity-70">Distribution</span></button>
+            <div class="grid grid-cols-2 gap-3">
+              <button type="button" @click="newPhase = 'PhaseOne'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseOne' ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 1<br/><span class="text-[10px] font-semibold opacity-70">The Accumulation Engine</span></button>
+              
+              <button type="button" @click="newPhase = 'PhaseTwo'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseTwo' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 2<br/><span class="text-[10px] font-semibold opacity-70">The House Money Milestone</span></button>
+              
+              <button type="button" @click="newPhase = 'PhaseThree'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseThree' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 3<br/><span class="text-[10px] font-semibold opacity-70 text-center block">The Technical Overextension Warning</span></button>
+              
+              <button type="button" @click="newPhase = 'PhaseFour'" class="py-3 px-2 border-2 rounded-xl text-sm font-bold transition-all" :class="newPhase === 'PhaseFour' ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200 text-text-muted hover:border-gray-300'">Phase 4<br/><span class="text-[10px] font-semibold opacity-70">The Cool-Down & Restart Rule</span></button>
             </div>
           </div>
 

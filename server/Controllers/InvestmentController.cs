@@ -61,6 +61,30 @@ public class InvestmentController : ControllerBase
     return Ok(result);
   }
 
+  [HttpPost("sale")]
+  public async Task<IActionResult> LogSale([FromBody] LogSaleDTO request)
+  {
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userId)) return Unauthorized(new { Error = "User ID not found in token." });
+
+    var result = await _investmentService.LogSaleAsync(userId, request);
+    
+    if (result.Success) return Ok(new { Message = "Sale logged successfully" });
+    return BadRequest(new { Error = result.Error });
+  }
+
+  [HttpPost("phase")]
+  public async Task<IActionResult> UpdatePhase([FromBody] UpdatePhaseDTO request)
+  {
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    if (string.IsNullOrEmpty(userId)) return Unauthorized(new { Error = "User ID not found in token." });
+
+    var result = await _investmentService.UpdatePhaseAsync(userId, request);
+    
+    if (result.Success) return Ok(new { Message = "Phase updated successfully" });
+    return BadRequest(new { Error = result.Error });
+  }
+
   [HttpGet("price/{symbol}")]
   public async Task<IActionResult> GetLivePrice(string symbol)
   {
@@ -90,7 +114,7 @@ public class InvestmentController : ControllerBase
   {
     var key = symbol.ToLower();
     
-    // Serve from server RAM immediately if we've downloaded it once
+    // Serve from server RAM immediately if it's downloaded once
     if (_iconCache.TryGetValue(key, out var cachedSvg))
     {
       return File(cachedSvg, "image/svg+xml");
@@ -102,7 +126,6 @@ public class InvestmentController : ControllerBase
       client.Timeout = TimeSpan.FromSeconds(5);
       client.DefaultRequestHeaders.Add("User-Agent", "TradingJournal/1.0");
       
-      // Use the stable npm registry instead of raw github to avoid rate limiting
       var url = $"https://cdn.jsdelivr.net/npm/cryptocurrency-icons/svg/color/{key}.svg";
       var response = await client.GetAsync(url);
       

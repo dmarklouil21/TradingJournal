@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace Server.Models.Enums;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SystemPhase
 {
   PhaseOne,
@@ -17,7 +20,7 @@ public static class SystemPhaseExtension
       SystemPhase.PhaseOne => "The Accumulation Engine",
       SystemPhase.PhaseTwo => "The House Money Milestone",
       SystemPhase.PhaseThree => "The Technical Overextension Warning",
-      SystemPhase.PhaseFour => "The Cool-Down & Restart Rule", 
+      SystemPhase.PhaseFour => "The DCA-Out Protocol", 
       _ => systemPhase.ToString()
     };
   }
