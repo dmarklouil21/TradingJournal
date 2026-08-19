@@ -7,7 +7,8 @@ using Microsoft.IdentityModel.Tokens;
 
 using Server.Models;
 using Server.Data;
-using Server.Services;
+using Server.Services.Auth;
+using Server.Services.InvestingTracker;
 
 namespace Server;
 

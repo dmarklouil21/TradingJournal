@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Server.Models.Enums;
+namespace Server.Models.InvestingTracker.Enums;
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SystemPhase

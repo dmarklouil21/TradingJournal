@@ -1,3 +1,5 @@
+namespace Server.DTO.Auth;
+
 using System.ComponentModel.DataAnnotations;
 
 public class RegisterRequestDTO

@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-using Server.DTO;
-using Server.Services;
+using Server.DTO.InvestingTracker;
+using Server.Services.InvestingTracker;
 
 namespace Server.Controllers;
 

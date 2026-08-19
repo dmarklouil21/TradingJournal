@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
 using Server.Models;
-using Server.DTO;
+using Server.DTO.Auth;
 
-namespace Server.Services;
+namespace Server.Services.Auth;
 
 public class AuthService : IAuthService
 {

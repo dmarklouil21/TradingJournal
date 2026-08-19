@@ -1,4 +1,4 @@
-namespace Server.DTO;
+namespace Server.DTO.InvestingTracker;
 
 public class InvestmentLogDTO
 {

@@ -14,30 +14,18 @@ All styling must be executed using **Tailwind CSS**. Do not use standard CSS fil
 ### Tailwind Configuration Setup
 You must ensure the `tailwind.config.js` is configured exactly as follows to extend the default theme with the project's specific palette and typography:
 
-```javascript
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        primary: '#749ab6',
-        secondary: '#fcb814',
-        'light-blue': '#c5d7e5',
-        yellow: '#fcb814', // Maps to secondary
-        'bg-gray': '#f0f2f5',
-        'text-main': '#111827',
-        'text-muted': '#6b7280',
-      },
-      fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-      },
-    },
-  },
-  plugins: [],
+```
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #749ab6;
+  --color-secondary: #fcb814;
+  --color-light-blue: #c5d7e5;
+  --color-yellow: #fcb814;
+  --color-bg-gray: #f0f2f5;
+  --color-text-main: #111827;
+  --color-text-muted: #6b7280;
+  --font-sans: "Inter", sans-serif;
 }
 ```
 

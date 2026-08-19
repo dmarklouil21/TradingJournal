@@ -1,6 +1,6 @@
-using Server.Models.Enums;
+using Server.Models.InvestingTracker.Enums;
 
-namespace Server.DTO;
+namespace Server.DTO.InvestingTracker;
 
 public class UpdatePhaseDTO
 {

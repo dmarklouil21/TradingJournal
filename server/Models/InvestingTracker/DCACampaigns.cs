@@ -1,6 +1,6 @@
-using Server.Models.Enums;
+using Server.Models.InvestingTracker.Enums;
 
-namespace Server.Models;
+namespace Server.Models.InvestingTracker;
 
 public class DCACampaigns
 {

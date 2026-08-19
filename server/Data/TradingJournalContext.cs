@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 using Server.Models;
+using Server.Models.InvestingTracker;
 namespace Server.Data;
 
 public class TradingJournalContext : IdentityDbContext<ApplicationUser>

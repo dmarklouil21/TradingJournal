@@ -1,10 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Server.Data;
-using Server.DTO;
-using Server.Models;
-using Server.Models.Enums;
+using Server.DTO.InvestingTracker;
+using Server.Models.InvestingTracker;
+using Server.Models.InvestingTracker.Enums;
 
-namespace Server.Services;
+namespace Server.Services.InvestingTracker;
 
 public class InvestmentService : IInvestmentService
 {

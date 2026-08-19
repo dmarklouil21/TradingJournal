@@ -1,6 +1,6 @@
-using Server.DTO;
+using Server.DTO.InvestingTracker;
 
-namespace Server.Services;
+namespace Server.Services.InvestingTracker;
 
 public interface IInvestmentService
 {

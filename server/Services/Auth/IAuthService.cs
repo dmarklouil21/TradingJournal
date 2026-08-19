@@ -1,6 +1,6 @@
-using Server.DTO;
+using Server.DTO.Auth;
 
-namespace Server.Services;
+namespace Server.Services.Auth;
 
 public interface IAuthService
 {

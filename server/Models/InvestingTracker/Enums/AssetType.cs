@@ -1,4 +1,4 @@
-namespace Server.Models.Enums;
+namespace Server.Models.InvestingTracker.Enums;
 
 public enum AssetType
 {
