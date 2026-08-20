@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Server.Models;
 using Server.Models.InvestingTracker;
+using Server.Models.TradingJournal;
 namespace Server.Data;
 
 public class TradingJournalContext : IdentityDbContext<ApplicationUser>
@@ -18,4 +19,7 @@ public class TradingJournalContext : IdentityDbContext<ApplicationUser>
   public DbSet<Assets> Assets { get; set; } = default!;
   public DbSet<DCACampaigns> DCACampaigns { get; set; } = default!;
   public DbSet<InvestmentLogs> InvestmentLogs { get; set; } = default!;
+
+  public DbSet<TradingStrategies> TradingStrategies { get; set; } = default!;
+  public DbSet<ActiveTrades> ActiveTrades { get; set; } = default!;
 }

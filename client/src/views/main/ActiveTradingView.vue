@@ -24,16 +24,103 @@ const reviewQueue = ref([
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 };
+
+// Log Trade Modal State
+const isLogTradeModalOpen = ref(false);
+const isSubmitting = ref(false);
+const errorMessage = ref('');
+const successMessage = ref('');
+const newTrade = ref({
+  instrument: '',
+  direction: 'Long',
+  entryDate: new Date().toISOString().split('T')[0],
+  exitDate: new Date().toISOString().split('T')[0],
+  entryPrice: null,
+  exitPrice: null,
+  quantity: null,
+  fees: null,
+  realizedPnL: null,
+  strategy: '',
+  reviewNotes: '',
+  chartImage: null,
+  chartPreview: null,
+});
+
+const openLogTradeModal = () => {
+  isLogTradeModalOpen.value = true;
+};
+
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    newTrade.value.chartImage = file;
+    newTrade.value.chartPreview = URL.createObjectURL(file);
+  }
+};
+
+const removeFile = () => {
+  newTrade.value.chartImage = null;
+  newTrade.value.chartPreview = null;
+};
+
+const closeLogTradeModal = () => {
+  isLogTradeModalOpen.value = false;
+  errorMessage.value = '';
+  newTrade.value = {
+    instrument: '',
+    direction: 'Long',
+    entryDate: new Date().toISOString().split('T')[0],
+    exitDate: new Date().toISOString().split('T')[0],
+    entryPrice: null,
+    exitPrice: null,
+    quantity: null,
+    fees: null,
+    realizedPnL: null,
+    strategy: '',
+    reviewNotes: '',
+    chartImage: null,
+    chartPreview: null,
+  };
+};
+
+const handleLogTrade = async () => {
+  if (isSubmitting.value) return;
+  
+  // Here we would submit the trade to the backend
+  isSubmitting.value = true;
+  errorMessage.value = '';
+  
+  try {
+    // Mock API Call delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    successMessage.value = `Successfully logged trade for ${newTrade.value.instrument}!`;
+    closeLogTradeModal();
+    
+    setTimeout(() => { successMessage.value = ''; }, 4000);
+  } catch (error) {
+    errorMessage.value = 'Failed to log trade.';
+  } finally {
+    isSubmitting.value = false;
+  }
+};
 </script>
 
 <template>
-  <div class="p-6 md:p-10 max-w-7xl mx-auto space-y-8 w-full">
+  <div class="p-6 md:p-10 max-w-7xl mx-auto space-y-8 w-full relative">
+    
+    <!-- Global Success Toast -->
+    <div v-if="successMessage" class="fixed top-8 right-8 z-50 bg-green-50 border border-green-200 text-green-800 px-6 py-4 rounded-2xl shadow-xl shadow-green-900/5 flex items-center gap-3 animate-[fadeIn_0.3s_ease-out]">
+      <svg class="w-6 h-6 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      <p class="font-bold text-sm">{{ successMessage }}</p>
+    </div>
+
     <header class="flex justify-between items-end mb-8 mt-4">
       <div>
         <h1 class="text-3xl font-extrabold text-text-main tracking-tight">Active Trading Journal</h1>
         <p class="text-text-muted mt-1">Module B: Strict mechanical execution and realized performance.</p>
       </div>
-      <button class="bg-secondary text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-secondary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all flex items-center gap-2">
+      <button @click="openLogTradeModal" class="bg-secondary text-white px-6 py-2.5 rounded-xl font-bold shadow-md shadow-secondary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all flex items-center gap-2">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
         Log Trade
       </button>
@@ -168,8 +255,137 @@ const formatCurrency = (value) => {
         </table>
       </div>
     </div>
+    
+    <!-- Log Trade Modal -->
+    <div v-if="isLogTradeModalOpen" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-lg p-8 shadow-2xl relative animate-[fadeIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button @click="closeLogTradeModal" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <h2 class="text-2xl font-extrabold text-text-main mb-2">Log Active Trade</h2>
+        <p class="text-text-muted text-sm font-medium mb-6">Record a completed mechanical trade execution.</p>
+
+        <!-- Error Message Alert -->
+        <div v-if="errorMessage" class="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 flex items-start gap-3 transition-all">
+          <svg class="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <p class="text-sm font-medium text-red-700 leading-tight">{{ errorMessage }}</p>
+        </div>
+
+        <form @submit.prevent="handleLogTrade" class="space-y-5">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Instrument</label>
+              <input v-model="newTrade.instrument" type="text" required placeholder="NQ1!" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted uppercase" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Direction</label>
+              <select v-model="newTrade.direction" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
+                <option value="Long" class="text-green-600 font-bold">Long</option>
+                <option value="Short" class="text-red-500 font-bold">Short</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Entry Date</label>
+              <input v-model="newTrade.entryDate" type="date" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main text-sm" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Exit Date</label>
+              <input v-model="newTrade.exitDate" type="date" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main text-sm" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Entry Price</label>
+              <input v-model="newTrade.entryPrice" type="number" step="any" required placeholder="18500.50" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Exit Price</label>
+              <input v-model="newTrade.exitPrice" type="number" step="any" required placeholder="18550.00" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Quantity / Size</label>
+              <input v-model="newTrade.quantity" type="number" step="any" required placeholder="2" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Fees (Total)</label>
+              <input v-model="newTrade.fees" type="number" step="any" required placeholder="4.50" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Realized PnL</label>
+              <input v-model="newTrade.realizedPnL" type="number" step="any" required placeholder="125.50" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Strategy Tag</label>
+              <input v-model="newTrade.strategy" type="text" required placeholder="e.g. ORB, SMOG" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-text-main mb-1.5">Review Notes</label>
+            <textarea v-model="newTrade.reviewNotes" rows="3" placeholder="What went well? Did you follow your rules?" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted custom-scrollbar"></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-text-main mb-1.5">Chart Screenshot</label>
+            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-xl hover:border-secondary transition-colors relative" :class="{ 'bg-gray-50': !newTrade.chartPreview, 'bg-gray-100': newTrade.chartPreview }">
+              <div v-if="!newTrade.chartPreview" class="space-y-1 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <div class="flex text-sm text-text-muted justify-center">
+                  <label for="file-upload" class="relative cursor-pointer bg-transparent rounded-md font-bold text-secondary hover:text-opacity-80 focus-within:outline-none">
+                    <span>Upload a file</span>
+                    <input id="file-upload" name="file-upload" type="file" class="sr-only" accept="image/*" @change="handleFileUpload" />
+                  </label>
+                  <p class="pl-1">or drag and drop</p>
+                </div>
+                <p class="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+              </div>
+              <div v-else class="relative w-full">
+                <img :src="newTrade.chartPreview" class="max-h-48 rounded-lg mx-auto object-contain" />
+                <button type="button" @click.prevent="removeFile" class="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow-md transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4 pt-2">
+            <button type="button" @click="closeLogTradeModal" class="flex-1 py-3.5 rounded-xl bg-gray-100 text-text-muted font-bold hover:bg-gray-200 transition-colors" :disabled="isSubmitting">Cancel</button>
+            <button type="submit" class="flex-1 py-3.5 rounded-xl bg-secondary text-white font-bold shadow-md shadow-secondary/30 hover:bg-opacity-90 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:hover:translate-y-0" :disabled="isSubmitting">
+              {{ isSubmitting ? 'Logging...' : 'Log Trade' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* Premium thin scrollbar for the modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #e5e7eb;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #d1d5db;
+}
 </style>
