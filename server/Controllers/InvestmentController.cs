@@ -25,7 +25,6 @@ public class InvestmentController : ControllerBase
   [HttpPost("purchase")]
   public async Task<IActionResult> LogPurchase([FromBody] NewInvestmentDTO request)
   {
-    Console.WriteLine("Was I here?");
     if (!ModelState.IsValid)
     {
       return BadRequest(ModelState);
@@ -34,7 +33,6 @@ public class InvestmentController : ControllerBase
     var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
     if (string.IsNullOrEmpty(userId))
     {
-      Console.WriteLine("User ID not found?");
       return Unauthorized(new { Error = "User ID not found in token." });
     }
 

@@ -10,6 +10,7 @@ using Server.Data;
 using Server.Services.Auth;
 using Server.Services.InvestingTracker;
 using Server.Services.Settings;
+using Server.Services.TradingJournal;
 
 namespace Server;
 
@@ -69,7 +70,8 @@ public class Program
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IInvestmentService, InvestmentService>();
     builder.Services.AddScoped<IActiveTradingSettingsService, ActiveTradingSettingsService>();
-
+    builder.Services.AddScoped<ITradingJournalService, TradingJournalService>();
+    
     var app = builder.Build();
 
     // Configure the HTTP request pipeline.

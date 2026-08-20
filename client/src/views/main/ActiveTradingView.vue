@@ -1,18 +1,15 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { fetchStrategies } from '@/services/settings';
+import { submitNewTrade, fetchTrades } from '@/services/activetrading';
 
-// KPIs Mock Data
-const totalRealizedPnL = ref(15240.50);
-const overallWinRate = ref(62.5);
-const profitFactor = ref(1.85);
+// KPIs
+const totalRealizedPnL = ref(0);
+const overallWinRate = ref(0);
+const profitFactor = ref(0.00);
 
-// Strategy Performance Mock Data
-const strategies = ref([
-  { name: 'Opening Range Breakout', winRate: 68, pnl: 8500, count: 45 },
-  { name: 'RSI Oversold', winRate: 55, pnl: 4200, count: 32 },
-  { name: 'VWAP Rejection', winRate: 72, pnl: 2540.50, count: 18 }
-]);
+// Strategy Performance
+const strategies = ref([]);
 
 // Available Strategies from Backend
 const availableStrategies = ref([]);
@@ -26,17 +23,58 @@ const loadStrategies = async () => {
   }
 };
 
+// Trade Review Queue
+const reviewQueue = ref([]);
+
+const loadTrades = async () => {
+  try {
+    const res = await fetchTrades();
+    const rawTrades = res.data;
+    
+    reviewQueue.value = rawTrades.map(t => ({
+      ...t,
+      date: new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    }));
+
+    // Calculate KPIs
+    const closedTrades = rawTrades.filter(t => t.status !== 'Open');
+    
+    totalRealizedPnL.value = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    
+    const wins = closedTrades.filter(t => t.pnl > 0).length;
+    overallWinRate.value = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(1) : 0;
+    
+    const grossProfit = closedTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+    const grossLoss = Math.abs(closedTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
+    profitFactor.value = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? '∞' : '0.00');
+
+    // Calculate Strategy Performance
+    const strategyMap = {};
+    closedTrades.forEach(t => {
+      if(!strategyMap[t.strategy]) {
+        strategyMap[t.strategy] = { name: t.strategy, wins: 0, pnl: 0, count: 0 };
+      }
+      strategyMap[t.strategy].count++;
+      strategyMap[t.strategy].pnl += (t.pnl || 0);
+      if(t.pnl > 0) strategyMap[t.strategy].wins++;
+    });
+
+    strategies.value = Object.values(strategyMap).map(s => ({
+      name: s.name,
+      winRate: s.count > 0 ? Math.round((s.wins / s.count) * 100) : 0,
+      pnl: s.pnl,
+      count: s.count
+    })).sort((a, b) => b.pnl - a.pnl);
+    
+  } catch (ex) {
+    console.error("Failed to load trades:", ex);
+  }
+};
+
 onMounted(() => {
   loadStrategies();
+  loadTrades();
 });
-
-// Trade Review Queue Mock Data
-const reviewQueue = ref([
-  { id: 101, instrument: 'NQ1!', direction: 'Long', date: 'Oct 14, 2026', pnl: 450.00, strategy: 'ORB', hasChart: true, status: 'Win' },
-  { id: 102, instrument: 'ES1!', direction: 'Short', date: 'Oct 14, 2026', pnl: -150.00, strategy: 'VWAP Rejection', hasChart: true, status: 'Loss' },
-  { id: 103, instrument: 'BTC/USD', direction: 'Long', date: 'Oct 13, 2026', pnl: 1200.50, strategy: 'RSI Oversold', hasChart: false, status: 'Win' },
-  { id: 104, instrument: 'NQ1!', direction: 'Long', date: 'Oct 12, 2026', pnl: -350.00, strategy: 'ORB', hasChart: true, status: 'Loss' },
-]);
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -49,13 +87,12 @@ const errorMessage = ref('');
 const successMessage = ref('');
 const newTrade = ref({
   instrument: '',
-  direction: 'Long',
+  positionType: 'Long',
   entryDate: new Date().toISOString().split('T')[0],
   exitDate: new Date().toISOString().split('T')[0],
   entryPrice: null,
   exitPrice: null,
-  quantity: null,
-  fees: null,
+  positionSize: null,
   realizedPnL: null,
   strategyId: '',
   reviewNotes: '',
@@ -85,13 +122,12 @@ const closeLogTradeModal = () => {
   errorMessage.value = '';
   newTrade.value = {
     instrument: '',
-    direction: 'Long',
+    positionType: 'Long',
     entryDate: new Date().toISOString().split('T')[0],
     exitDate: new Date().toISOString().split('T')[0],
     entryPrice: null,
     exitPrice: null,
-    quantity: null,
-    fees: null,
+    positionSize: null,
     realizedPnL: null,
     strategyId: '',
     reviewNotes: '',
@@ -108,15 +144,40 @@ const handleLogTrade = async () => {
   errorMessage.value = '';
   
   try {
-    // Mock API Call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    const payload = {
+      instrument: newTrade.value.instrument,
+      positionType: newTrade.value.positionType,
+      entryDate: new Date(newTrade.value.entryDate).toISOString(),
+      exitDate: newTrade.value.exitDate ? new Date(newTrade.value.exitDate).toISOString() : null,
+      entryPrice: parseFloat(newTrade.value.entryPrice),
+      exitPrice: newTrade.value.exitPrice ? parseFloat(newTrade.value.exitPrice) : null,
+      positionSize: parseFloat(newTrade.value.positionSize),
+      realizedPnL: newTrade.value.realizedPnL ? parseFloat(newTrade.value.realizedPnL) : null,
+      strategyId: parseInt(newTrade.value.strategyId),
+      reviewNotes: newTrade.value.reviewNotes
+    };
     
-    successMessage.value = `Successfully logged trade for ${newTrade.value.instrument}!`;
+    const res = await submitNewTrade(payload);
+    
+    if(res.status == 200) {
+      successMessage.value = `Successfully logged trade for ${newTrade.value.instrument}!`;
+      await loadTrades();
+    }
     closeLogTradeModal();
     
     setTimeout(() => { successMessage.value = ''; }, 4000);
   } catch (error) {
-    errorMessage.value = 'Failed to log trade.';
+    if (error.response && error.response.data) {
+      if (error.response.data.error) {
+        errorMessage.value = error.response.data.error;
+      } else if (error.response.data.errors) {
+        errorMessage.value = Object.values(error.response.data.errors).flat().join(', ');
+      } else {
+        errorMessage.value = 'Failed to log trade.';
+      }
+    } else {
+      errorMessage.value = 'An unexpected error occurred.';
+    }
   } finally {
     isSubmitting.value = false;
   }
@@ -240,10 +301,10 @@ const handleLogTrade = async () => {
                 <div class="flex items-center gap-3">
                   <div :class="[
                     'w-2 h-10 rounded-full',
-                    trade.direction === 'Long' ? 'bg-green-400' : 'bg-red-400'
+                    trade.positionType === 'Long' ? 'bg-green-400' : 'bg-red-400'
                   ]"></div>
                   <div>
-                    <p class="font-bold text-text-main">{{ trade.instrument }} <span class="text-text-muted font-normal ml-1">({{ trade.direction }})</span></p>
+                    <p class="font-bold text-text-main">{{ trade.instrument }} <span class="text-text-muted font-normal ml-1">({{ trade.positionType }})</span></p>
                     <p class="text-xs text-text-muted mt-0.5">{{ trade.date }}</p>
                   </div>
                 </div>
@@ -260,7 +321,8 @@ const handleLogTrade = async () => {
                 <span v-else class="text-text-muted text-xs italic">No chart</span>
               </td>
               <td class="px-8 py-4 text-right font-bold">
-                <span :class="trade.pnl > 0 ? 'text-green-600' : 'text-red-500'">
+                <span v-if="trade.status === 'Open'" class="text-text-muted italic text-sm font-medium">Open</span>
+                <span v-else :class="trade.pnl > 0 ? 'text-green-600' : (trade.pnl < 0 ? 'text-red-500' : 'text-text-muted')">
                   {{ trade.pnl > 0 ? '+' : '' }}{{ formatCurrency(trade.pnl) }}
                 </span>
               </td>
@@ -296,8 +358,8 @@ const handleLogTrade = async () => {
               <input v-model="newTrade.instrument" type="text" required placeholder="NQ1!" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted uppercase" />
             </div>
             <div>
-              <label class="block text-sm font-semibold text-text-main mb-1.5">Direction</label>
-              <select v-model="newTrade.direction" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
+              <label class="block text-sm font-semibold text-text-main mb-1.5">Position Type</label>
+              <select v-model="newTrade.positionType" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
                 <option value="Long" class="text-green-600 font-bold">Long</option>
                 <option value="Short" class="text-red-500 font-bold">Short</option>
               </select>
@@ -329,26 +391,20 @@ const handleLogTrade = async () => {
           <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-semibold text-text-main mb-1.5">Quantity / Size</label>
-              <input v-model="newTrade.quantity" type="number" step="any" required placeholder="2" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+              <input v-model="newTrade.positionSize" type="number" step="any" required placeholder="2" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
             </div>
-            <div>
-              <label class="block text-sm font-semibold text-text-main mb-1.5">Fees (Total)</label>
-              <input v-model="newTrade.fees" type="number" step="any" required placeholder="4.50" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-semibold text-text-main mb-1.5">Realized PnL</label>
               <input v-model="newTrade.realizedPnL" type="number" step="any" required placeholder="125.50" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
             </div>
-            <div>
-              <label class="block text-sm font-semibold text-text-main mb-1.5">Strategy Tag</label>
-              <select v-model="newTrade.strategyId" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
-                <option value="" disabled selected>Select a strategy</option>
-                <option v-for="strategy in availableStrategies" :key="strategy.id" :value="strategy.id">{{ strategy.name }}</option>
-              </select>
-            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-text-main mb-1.5">Strategy Tag</label>
+            <select v-model="newTrade.strategyId" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
+              <option value="" disabled selected>Select a strategy</option>
+              <option v-for="strategy in availableStrategies" :key="strategy.id" :value="strategy.id">{{ strategy.name }}</option>
+            </select>
           </div>
 
           <div>
