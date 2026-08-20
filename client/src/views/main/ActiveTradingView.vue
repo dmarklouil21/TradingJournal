@@ -327,7 +327,10 @@ const handleLogTrade = async () => {
             </div>
             <div>
               <label class="block text-sm font-semibold text-text-main mb-1.5">Strategy Tag</label>
-              <input v-model="newTrade.strategy" type="text" required placeholder="e.g. ORB, SMOG" class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main placeholder-text-muted" />
+              <select v-model="newTrade.strategy" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
+                <option value="" disabled selected>Select a strategy</option>
+                <option v-for="strategy in strategies" :key="strategy.name" :value="strategy.name">{{ strategy.name }}</option>
+              </select>
             </div>
           </div>
 
