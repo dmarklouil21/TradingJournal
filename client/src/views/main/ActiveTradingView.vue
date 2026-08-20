@@ -77,7 +77,7 @@ onMounted(() => {
 });
 
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
 };
 
 // Log Trade Modal State
@@ -115,6 +115,20 @@ const handleFileUpload = (event) => {
 const removeFile = () => {
   newTrade.value.chartImage = null;
   newTrade.value.chartPreview = null;
+};
+
+// Review Modal State
+const isReviewModalOpen = ref(false);
+const selectedTrade = ref(null);
+
+const openReviewModal = (trade) => {
+  selectedTrade.value = trade;
+  isReviewModalOpen.value = true;
+};
+
+const closeReviewModal = () => {
+  isReviewModalOpen.value = false;
+  setTimeout(() => { selectedTrade.value = null; }, 300); // Wait for animation
 };
 
 const closeLogTradeModal = () => {
@@ -327,7 +341,7 @@ const handleLogTrade = async () => {
                 </span>
               </td>
               <td class="px-8 py-4 text-center">
-                <button class="text-sm font-bold text-primary hover:text-secondary transition-colors">Review</button>
+                <button @click="openReviewModal(trade)" class="text-sm font-bold text-primary hover:text-secondary transition-colors">Review</button>
               </td>
             </tr>
           </tbody>
@@ -444,6 +458,76 @@ const handleLogTrade = async () => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+    <!-- Review Trade Modal -->
+    <div v-if="isReviewModalOpen && selectedTrade" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl w-full max-w-2xl p-8 shadow-2xl relative animate-[fadeIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto custom-scrollbar">
+        <button @click="closeReviewModal" class="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        
+        <div class="flex items-center gap-3 mb-6">
+          <div :class="[
+            'w-3 h-12 rounded-full',
+            selectedTrade.positionType === 'Long' ? 'bg-green-400' : 'bg-red-400'
+          ]"></div>
+          <div>
+            <h2 class="text-2xl font-extrabold text-text-main leading-tight">{{ selectedTrade.instrument }} <span class="text-text-muted text-lg font-normal ml-1">({{ selectedTrade.positionType }})</span></h2>
+            <p class="text-text-muted text-sm font-medium mt-0.5">{{ selectedTrade.date }} &bull; {{ selectedTrade.strategy }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100">
+            <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Status</p>
+            <p class="font-extrabold text-text-main">{{ selectedTrade.status }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100">
+            <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Position Size</p>
+            <p class="font-extrabold text-text-main">{{ selectedTrade.positionSize }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100 md:col-span-2">
+            <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Realized PnL</p>
+            <p class="font-extrabold text-xl" :class="selectedTrade.pnl > 0 ? 'text-green-600' : (selectedTrade.pnl < 0 ? 'text-red-500' : 'text-text-main')">
+              <span v-if="selectedTrade.status === 'Open'" class="text-text-muted italic text-base font-medium">Open Position</span>
+              <span v-else>{{ selectedTrade.pnl > 0 ? '+' : '' }}{{ formatCurrency(selectedTrade.pnl) }}</span>
+            </p>
+          </div>
+          <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100 md:col-span-2">
+            <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Entry Price</p>
+            <p class="font-extrabold text-text-main">{{ formatCurrency(selectedTrade.entryPrice) }}</p>
+          </div>
+          <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100 md:col-span-2">
+            <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Exit Price</p>
+            <p class="font-extrabold text-text-main" :class="!selectedTrade.exitPrice ? 'text-text-muted italic font-normal' : ''">
+              {{ selectedTrade.exitPrice ? formatCurrency(selectedTrade.exitPrice) : 'Not Exited' }}
+            </p>
+          </div>
+        </div>
+
+        <div class="mb-8">
+          <h3 class="text-sm font-bold text-text-main uppercase tracking-wider mb-3">Review Notes</h3>
+          <div class="p-5 rounded-xl bg-bg-gray/30 border border-gray-100 min-h-[100px]">
+            <p v-if="selectedTrade.reviewNotes" class="text-text-main leading-relaxed whitespace-pre-line">{{ selectedTrade.reviewNotes }}</p>
+            <p v-else class="text-text-muted italic text-sm">No review notes provided for this trade.</p>
+          </div>
+        </div>
+
+        <div v-if="selectedTrade.hasChart">
+          <h3 class="text-sm font-bold text-text-main uppercase tracking-wider mb-3">Attached Chart</h3>
+          <div class="rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center p-4">
+            <!-- If we had actual image URLs we would use: <img :src="selectedTrade.chartImageUrl" class="max-w-full rounded-lg shadow-sm" /> -->
+            <!-- For now, showing placeholder since images are simulated or URL not full -->
+            <div class="text-center py-10 text-gray-400">
+              <svg class="mx-auto h-12 w-12 mb-3" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <p class="text-sm">Chart image would be displayed here.</p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>

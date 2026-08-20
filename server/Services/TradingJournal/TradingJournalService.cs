@@ -62,7 +62,12 @@ public class TradingJournalService : ITradingJournalService
       Strategy = t.Strategy?.Name ?? "Unknown",
       HasChart = !string.IsNullOrEmpty(t.ChartImageUrl),
       Status = !t.ExitDate.HasValue ? "Open" : (t.RealizedPnL > 0 ? "Win" : (t.RealizedPnL < 0 ? "Loss" : "Breakeven")),
-      ReviewNotes = t.ReviewNotes
+      ReviewNotes = t.ReviewNotes,
+      EntryPrice = t.EntryPrice,
+      ExitPrice = t.ExitPrice,
+      PositionSize = t.PositionSize,
+      ExitDate = t.ExitDate,
+      ChartImageUrl = t.ChartImageUrl
     }).ToList();
   }
 }

@@ -13,4 +13,11 @@ public class ActiveTradeDTO
     public bool HasChart { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? ReviewNotes { get; set; }
+    
+    // Detailed fields
+    public decimal EntryPrice { get; set; }
+    public decimal? ExitPrice { get; set; }
+    public decimal PositionSize { get; set; }
+    public DateTime? ExitDate { get; set; }
+    public string? ChartImageUrl { get; set; }
 }
