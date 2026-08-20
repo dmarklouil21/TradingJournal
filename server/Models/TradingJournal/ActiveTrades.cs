@@ -5,6 +5,8 @@ namespace Server.Models.TradingJournal;
 public class ActiveTrades
 {
   public int Id { get; set; }
+  public string UserId { get; set; } = string.Empty;
+  public ApplicationUser? User { get; set; }
   public string Instrument { get; set; } = string.Empty;
   public int StrategyId { get; set; }
   public TradingStrategies? Strategy { get; set; }

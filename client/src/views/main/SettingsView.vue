@@ -1,13 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { fetchStrategies, submitStrategy } from '@/services/settings';
 
 const activeTab = ref('active-trading'); // 'investing' | 'active-trading'
 
-// Mock Data for Strategies
-const strategies = ref([
-  { id: 1, name: 'Opening Range Breakout', description: 'Trading the breakout of the first 15m candle.' },
-  { id: 2, name: 'VWAP Rejection', description: 'Shorting or going long when price rejects VWAP.' }
-]);
+const strategies = ref([]);
 
 const newStrategy = ref({
   name: '',
@@ -17,6 +14,19 @@ const newStrategy = ref({
 const isSubmitting = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
+
+const loadStrategies = async () => {
+  try {
+    const res = await fetchStrategies();
+    strategies.value = res.data;
+  } catch (ex) {
+    console.error("Failed to load strategies:", ex);
+  }
+};
+
+onMounted(() => {
+  loadStrategies();
+});
 
 const handleAddStrategy = async () => {
   if (isSubmitting.value) return;
@@ -29,23 +39,25 @@ const handleAddStrategy = async () => {
   errorMessage.value = '';
   
   try {
-    // Mock backend call
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    strategies.value.push({
-      id: Date.now(),
+    const payload = {
       name: newStrategy.value.name,
       description: newStrategy.value.description
-    });
+    };
     
-    successMessage.value = `Strategy "${newStrategy.value.name}" added successfully.`;
+    const res = await submitStrategy(payload);
     
-    newStrategy.value.name = '';
-    newStrategy.value.description = '';
-    
-    setTimeout(() => { successMessage.value = ''; }, 4000);
+    if (res.status === 200) {
+      successMessage.value = `Strategy "${payload.name}" added successfully.`;
+      
+      newStrategy.value.name = '';
+      newStrategy.value.description = '';
+      
+      await loadStrategies();
+      
+      setTimeout(() => { successMessage.value = ''; }, 4000);
+    }
   } catch (error) {
-    errorMessage.value = 'Failed to add strategy.';
+    errorMessage.value = error.response?.data?.error || 'Failed to add strategy.';
   } finally {
     isSubmitting.value = false;
   }

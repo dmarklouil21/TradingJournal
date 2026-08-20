@@ -9,6 +9,7 @@ using Server.Models;
 using Server.Data;
 using Server.Services.Auth;
 using Server.Services.InvestingTracker;
+using Server.Services.Settings;
 
 namespace Server;
 
@@ -67,6 +68,7 @@ public class Program
 
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IInvestmentService, InvestmentService>();
+    builder.Services.AddScoped<IActiveTradingSettingsService, ActiveTradingSettingsService>();
 
     var app = builder.Build();
 

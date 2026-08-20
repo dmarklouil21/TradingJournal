@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { fetchStrategies } from '@/services/settings';
 
 // KPIs Mock Data
 const totalRealizedPnL = ref(15240.50);
@@ -12,6 +13,22 @@ const strategies = ref([
   { name: 'RSI Oversold', winRate: 55, pnl: 4200, count: 32 },
   { name: 'VWAP Rejection', winRate: 72, pnl: 2540.50, count: 18 }
 ]);
+
+// Available Strategies from Backend
+const availableStrategies = ref([]);
+
+const loadStrategies = async () => {
+  try {
+    const res = await fetchStrategies();
+    availableStrategies.value = res.data;
+  } catch (ex) {
+    console.error("Failed to load strategies:", ex);
+  }
+};
+
+onMounted(() => {
+  loadStrategies();
+});
 
 // Trade Review Queue Mock Data
 const reviewQueue = ref([
@@ -40,7 +57,7 @@ const newTrade = ref({
   quantity: null,
   fees: null,
   realizedPnL: null,
-  strategy: '',
+  strategyId: '',
   reviewNotes: '',
   chartImage: null,
   chartPreview: null,
@@ -76,7 +93,7 @@ const closeLogTradeModal = () => {
     quantity: null,
     fees: null,
     realizedPnL: null,
-    strategy: '',
+    strategyId: '',
     reviewNotes: '',
     chartImage: null,
     chartPreview: null,
@@ -327,9 +344,9 @@ const handleLogTrade = async () => {
             </div>
             <div>
               <label class="block text-sm font-semibold text-text-main mb-1.5">Strategy Tag</label>
-              <select v-model="newTrade.strategy" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
+              <select v-model="newTrade.strategyId" required class="w-full px-4 py-3 rounded-xl bg-bg-gray/50 border border-gray-200 focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all outline-none text-text-main font-bold appearance-none">
                 <option value="" disabled selected>Select a strategy</option>
-                <option v-for="strategy in strategies" :key="strategy.name" :value="strategy.name">{{ strategy.name }}</option>
+                <option v-for="strategy in availableStrategies" :key="strategy.id" :value="strategy.id">{{ strategy.name }}</option>
               </select>
             </div>
           </div>
