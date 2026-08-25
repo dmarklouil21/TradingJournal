@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Server.Models;
 using Server.Data;
 using Server.Services.Auth;
+using Server.Services.Dashboard;
+using Server.Services.ExchangeRate;
 using Server.Services.InvestingTracker;
 using Server.Services.Settings;
 using Server.Services.TradingJournal;
@@ -71,6 +73,10 @@ public class Program
     builder.Services.AddScoped<IInvestmentService, InvestmentService>();
     builder.Services.AddScoped<IActiveTradingSettingsService, ActiveTradingSettingsService>();
     builder.Services.AddScoped<ITradingJournalService, TradingJournalService>();
+    builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+    builder.Services.AddMemoryCache();
+    builder.Services.AddHttpClient<IExchangeRateService, ExchangeRateService>();
     
     var app = builder.Build();
 

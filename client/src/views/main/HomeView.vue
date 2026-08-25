@@ -1,20 +1,50 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { fetchDashboardSummary } from '@/services/dashboard';
 
-// Mock data for the dashboard
-const totalNetWorth = ref(124500.75);
-const trendPercentage = ref(2.4);
+const router = useRouter();
 
-const recentActivities = ref([
-  { id: 1, type: 'active', action: 'Closed Long', asset: 'NQ1!', amount: '+$450.00', date: '2 hours ago', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
-  { id: 2, type: 'dca', action: 'Bought', asset: '0.05 BTC', amount: '-$3,120.50', date: '5 hours ago', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
-  { id: 3, type: 'active', action: 'Logged Setup', asset: 'ORB Strategy', amount: '', date: '1 day ago', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-  { id: 4, type: 'dca', action: 'Bought', asset: '10 ETH', amount: '-$22,500.00', date: '2 days ago', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
-  { id: 5, type: 'active', action: 'Stopped Out', asset: 'ES1!', amount: '-$150.00', date: '3 days ago', icon: 'M6 18L18 6M6 6l12 12' },
-]);
+const totalNetWorth = ref(0);
+const trendPercentage = ref(0);
+const recentActivities = ref([]);
 
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+const loadDashboard = async () => {
+  try {
+    const res = await fetchDashboardSummary();
+    totalNetWorth.value = res.data.totalNetWorth;
+    trendPercentage.value = res.data.trendPercentage;
+    
+    recentActivities.value = res.data.recentActivities.map(a => ({
+      ...a,
+      date: formatTimeAgo(new Date(a.date))
+    }));
+  } catch (error) {
+    console.error("Failed to load dashboard:", error);
+  }
+};
+
+onMounted(() => {
+  loadDashboard();
+});
+
+const formatTimeAgo = (date) => {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + " years ago";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + " months ago";
+  interval = seconds / 86400;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " day ago" : " days ago");
+  interval = seconds / 3600;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " hour ago" : " hours ago");
+  interval = seconds / 60;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? " minute ago" : " minutes ago");
+  return Math.floor(seconds) + " seconds ago";
+};
+
+const formatCurrency = (value, currency = 'PHP') => {
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: currency }).format(value);
 };
 </script>
 
@@ -45,14 +75,14 @@ const formatCurrency = (value) => {
 
       <!-- Quick Actions -->
       <div class="flex flex-col gap-4">
-        <button class="flex-1 bg-primary text-white rounded-2xl p-6 shadow-md hover:shadow-lg hover:bg-opacity-95 transition-all transform hover:-translate-y-1 flex flex-col items-start justify-between group">
+        <button @click="router.push('/investing')" class="flex-1 bg-primary text-white rounded-2xl p-6 shadow-md hover:shadow-lg hover:bg-opacity-95 transition-all transform hover:-translate-y-1 flex flex-col items-start justify-between group">
           <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 text-white group-hover:scale-110 transition-transform">
              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
           </div>
           <span class="font-bold text-lg">Log DCA Purchase</span>
         </button>
         
-        <button class="flex-1 bg-primary text-white rounded-2xl p-6 shadow-md hover:shadow-lg hover:bg-opacity-95 transition-all transform hover:-translate-y-1 flex flex-col items-start justify-between group">
+        <button @click="router.push('/trading')" class="flex-1 bg-primary text-white rounded-2xl p-6 shadow-md hover:shadow-lg hover:bg-opacity-95 transition-all transform hover:-translate-y-1 flex flex-col items-start justify-between group">
           <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 text-white group-hover:scale-110 transition-transform">
              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
           </div>
