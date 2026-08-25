@@ -1,3 +1,3 @@
 export function getAssetIcon (symbol) {
-  return `http://localhost:5234/api/investment/logo/${symbol}`;
+  return `${import.meta.env.API_BASE_URL}/api/investment/logo/${symbol}`;
 };
