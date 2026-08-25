@@ -14,9 +14,9 @@ public class ActiveTrades
   public DateTime EntryDate { get; set; }
   public decimal EntryPrice { get; set; }
   public decimal PositionSize { get; set; }
-  public DateTime? ExitDate { get; set; }
-  public decimal? ExitPrice { get; set; }
-  public decimal? RealizedPnL { get; set; }
+  public DateTime ExitDate { get; set; }
+  public decimal ExitPrice { get; set; }
+  public decimal RealizedPnL { get; set; }
   public string? ChartImageUrl { get; set; }
   public string? ReviewNotes { get; set; }
 }

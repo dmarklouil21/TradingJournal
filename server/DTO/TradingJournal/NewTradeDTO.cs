@@ -15,9 +15,12 @@ public class NewTradeDTO
   public decimal EntryPrice { get; set; }
   [Required(ErrorMessage = "Position size is required")]
   public decimal PositionSize { get; set; }
-  public DateTime? ExitDate { get; set; }
-  public decimal? ExitPrice { get; set; }
-  public decimal? RealizedPnL { get; set; }
+  [Required(ErrorMessage = "Exit Date is required")]
+  public DateTime ExitDate { get; set; }
+  [Required(ErrorMessage = "Exit price is required")]
+  public decimal ExitPrice { get; set; }
+  [Required(ErrorMessage = "Realized PnL is required")]
+  public decimal RealizedPnL { get; set; }
   [Required(ErrorMessage = "Strategy is required")]
   public int StrategyId { get; set; }
   public string? ReviewNotes { get; set; }

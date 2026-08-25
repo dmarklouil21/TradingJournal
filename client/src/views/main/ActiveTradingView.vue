@@ -37,20 +37,20 @@ const loadTrades = async () => {
     }));
 
     // Calculate KPIs
-    const closedTrades = rawTrades.filter(t => t.status !== 'Open');
+    // const closedTrades = rawTrades.filter(t => t.status !== 'Open');
     
-    totalRealizedPnL.value = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+    totalRealizedPnL.value = rawTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
     
-    const wins = closedTrades.filter(t => t.pnl > 0).length;
-    overallWinRate.value = closedTrades.length > 0 ? ((wins / closedTrades.length) * 100).toFixed(1) : 0;
+    const wins = rawTrades.filter(t => t.pnl > 0).length;
+    overallWinRate.value = rawTrades.length > 0 ? ((wins / rawTrades.length) * 100).toFixed(1) : 0;
     
-    const grossProfit = closedTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
-    const grossLoss = Math.abs(closedTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
+    const grossProfit = rawTrades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+    const grossLoss = Math.abs(rawTrades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
     profitFactor.value = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : (grossProfit > 0 ? '∞' : '0.00');
 
     // Calculate Strategy Performance
     const strategyMap = {};
-    closedTrades.forEach(t => {
+    rawTrades.forEach(t => {
       if(!strategyMap[t.strategy]) {
         strategyMap[t.strategy] = { name: t.strategy, wins: 0, pnl: 0, count: 0 };
       }
@@ -77,7 +77,7 @@ onMounted(() => {
 });
 
 const formatCurrency = (value) => {
-  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
 };
 
 // Log Trade Modal State
@@ -162,11 +162,11 @@ const handleLogTrade = async () => {
       instrument: newTrade.value.instrument,
       positionType: newTrade.value.positionType,
       entryDate: new Date(newTrade.value.entryDate).toISOString(),
-      exitDate: newTrade.value.exitDate ? new Date(newTrade.value.exitDate).toISOString() : null,
+      exitDate: new Date(newTrade.value.exitDate).toISOString(),
       entryPrice: parseFloat(newTrade.value.entryPrice),
-      exitPrice: newTrade.value.exitPrice ? parseFloat(newTrade.value.exitPrice) : null,
+      exitPrice: parseFloat(newTrade.value.exitPrice),
       positionSize: parseFloat(newTrade.value.positionSize),
-      realizedPnL: newTrade.value.realizedPnL ? parseFloat(newTrade.value.realizedPnL) : null,
+      realizedPnL: parseFloat(newTrade.value.realizedPnL),
       strategyId: parseInt(newTrade.value.strategyId),
       reviewNotes: newTrade.value.reviewNotes
     };
@@ -335,8 +335,8 @@ const handleLogTrade = async () => {
                 <span v-else class="text-text-muted text-xs italic">No chart</span>
               </td>
               <td class="px-8 py-4 text-right font-bold">
-                <span v-if="trade.status === 'Open'" class="text-text-muted italic text-sm font-medium">Open</span>
-                <span v-else :class="trade.pnl > 0 ? 'text-green-600' : (trade.pnl < 0 ? 'text-red-500' : 'text-text-muted')">
+                <!-- <span v-if="trade.status === 'Open'" class="text-text-muted italic text-sm font-medium">Open</span> -->
+                <span :class="trade.pnl > 0 ? 'text-green-600' : (trade.pnl < 0 ? 'text-red-500' : 'text-text-muted')">
                   {{ trade.pnl > 0 ? '+' : '' }}{{ formatCurrency(trade.pnl) }}
                 </span>
               </td>
@@ -490,8 +490,8 @@ const handleLogTrade = async () => {
           <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100 md:col-span-2">
             <p class="text-xs font-bold text-text-muted uppercase tracking-wider mb-1">Realized PnL</p>
             <p class="font-extrabold text-xl" :class="selectedTrade.pnl > 0 ? 'text-green-600' : (selectedTrade.pnl < 0 ? 'text-red-500' : 'text-text-main')">
-              <span v-if="selectedTrade.status === 'Open'" class="text-text-muted italic text-base font-medium">Open Position</span>
-              <span v-else>{{ selectedTrade.pnl > 0 ? '+' : '' }}{{ formatCurrency(selectedTrade.pnl) }}</span>
+              <!-- <span v-if="selectedTrade.status === 'Open'" class="text-text-muted italic text-base font-medium">Open Position</span> -->
+              <span>{{ selectedTrade.pnl > 0 ? '+' : '' }}{{ formatCurrency(selectedTrade.pnl) }}</span>
             </p>
           </div>
           <div class="p-4 rounded-xl bg-bg-gray/50 border border-gray-100 md:col-span-2">
