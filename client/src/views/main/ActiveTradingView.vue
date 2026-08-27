@@ -158,20 +158,23 @@ const handleLogTrade = async () => {
   errorMessage.value = '';
   
   try {
-    const payload = {
-      instrument: newTrade.value.instrument,
-      positionType: newTrade.value.positionType,
-      entryDate: new Date(newTrade.value.entryDate).toISOString(),
-      exitDate: new Date(newTrade.value.exitDate).toISOString(),
-      entryPrice: parseFloat(newTrade.value.entryPrice),
-      exitPrice: parseFloat(newTrade.value.exitPrice),
-      positionSize: parseFloat(newTrade.value.positionSize),
-      realizedPnL: parseFloat(newTrade.value.realizedPnL),
-      strategyId: parseInt(newTrade.value.strategyId),
-      reviewNotes: newTrade.value.reviewNotes
-    };
+    const formData = new FormData();
+    formData.append("instrument", newTrade.value.instrument);
+    formData.append("positionType", newTrade.value.positionType);
+    formData.append("entryDate", new Date(newTrade.value.entryDate).toISOString());
+    formData.append("exitDate", newTrade.value.exitDate ? new Date(newTrade.value.exitDate).toISOString() : "");
+    if (newTrade.value.entryPrice) formData.append("entryPrice", parseFloat(newTrade.value.entryPrice));
+    if (newTrade.value.exitPrice) formData.append("exitPrice", parseFloat(newTrade.value.exitPrice));
+    if (newTrade.value.positionSize) formData.append("positionSize", parseFloat(newTrade.value.positionSize));
+    if (newTrade.value.realizedPnL) formData.append("realizedPnL", parseFloat(newTrade.value.realizedPnL));
+    formData.append("strategyId", parseInt(newTrade.value.strategyId));
+    if (newTrade.value.reviewNotes) formData.append("reviewNotes", newTrade.value.reviewNotes);
     
-    const res = await submitNewTrade(payload);
+    if (newTrade.value.chartImage) {
+      formData.append("file", newTrade.value.chartImage);
+    }
+    
+    const res = await submitNewTrade(formData);
     
     if(res.status == 200) {
       successMessage.value = `Successfully logged trade for ${newTrade.value.instrument}!`;
@@ -520,10 +523,11 @@ const handleLogTrade = async () => {
             <!-- If we had actual image URLs we would use: <img :src="selectedTrade.chartImageUrl" class="max-w-full rounded-lg shadow-sm" /> -->
             <!-- For now, showing placeholder since images are simulated or URL not full -->
             <div class="text-center py-10 text-gray-400">
-              <svg class="mx-auto h-12 w-12 mb-3" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+              <!-- <svg class="mx-auto h-12 w-12 mb-3" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
-              <p class="text-sm">Chart image would be displayed here.</p>
+              <p class="text-sm">Chart image would be displayed here.</p> -->
+              <img :src="selectedTrade.chartImageUrl" class="max-w-full rounded-lg shadow-sm" />
             </div>
           </div>
         </div>

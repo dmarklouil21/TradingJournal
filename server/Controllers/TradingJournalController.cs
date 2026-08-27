@@ -20,7 +20,7 @@ public class TradingJournalController : ControllerBase
   }
 
   [HttpPost("new-trade")]
-  public async Task<IActionResult> AddTrade([FromBody] NewTradeDTO request)
+  public async Task<IActionResult> AddTrade([FromForm] NewTradeDTO request, IFormFile? file)
   {
     if (!ModelState.IsValid)
     {
@@ -33,7 +33,7 @@ public class TradingJournalController : ControllerBase
       return Unauthorized(new { Error = "User id not found in token."});
     }
 
-    var result = await _tradingJournalService.AddTradeAsync(userId, request);
+    var result = await _tradingJournalService.AddTradeAsync(userId, request, file);
     if(result.Success)
     {
       return Ok(new { Message = "Trade log successfully."});

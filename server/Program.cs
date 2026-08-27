@@ -5,6 +5,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
+using Supabase;
+
 using Server.Models;
 using Server.Data;
 using Server.Services.Auth;
@@ -18,7 +20,7 @@ namespace Server;
 
 public class Program 
 {
-  public static void Main(string[] args)
+  public static async Task Main(string[] args)
   {
     var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +29,15 @@ public class Program
     builder.Services.AddOpenApi();
 
     builder.Services.AddControllers();
+
+    var supabaseUrl = builder.Configuration["Supabase:Url"];
+    var supabaseKey = builder.Configuration["Supabase:Key"];
+
+    var options = new SupabaseOptions { AutoConnectRealtime = false };
+    var supabaseClient = new Supabase.Client(supabaseUrl, supabaseKey, options);
+    await supabaseClient.InitializeAsync();
+    
+    builder.Services.AddSingleton(supabaseClient);
 
     var jwtSettings = builder.Configuration.GetSection("Jwt");
     var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
