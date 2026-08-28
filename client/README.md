@@ -1,38 +1,54 @@
-# client
+# Trading Journal - Client (Frontend)
 
-This template should help get you started developing with Vue 3 in Vite.
+This directory contains the frontend application for the Trading Journal platform, built with **Vue 3** and **Vite**. It serves as the user-facing interface for tracking active trades, DCA investments, and overall portfolio performance.
 
-## Recommended IDE Setup
+## 🚀 Technologies Used
+* **Framework**: Vue 3 (Composition API / `<script setup>`)
+* **Build Tool**: Vite
+* **Styling**: Tailwind CSS v4 & custom vanilla CSS
+* **Routing**: Vue Router
+* **HTTP Client**: Axios
+* **Icons**: Inline SVG / Heroicons
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+## 📁 Directory Structure & Categories
 
-## Recommended Browser Setup
+### `/src/views`
+Contains all the main page components of the application.
+* **`auth/`**: Authentication pages (`LoginView.vue`, `RegisterView.vue`).
+* **`main/`**: Core application features (`HomeView.vue`, `ActiveTradingView.vue`, `InvestingTrackerView.vue`, `SettingsView.vue`).
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+### `/src/services`
+Houses isolated modules responsible for making HTTP requests to the backend API.
+* **`auth.js`**: Handles login, registration, and token management.
+* **`dashboard.js`**: Fetches aggregate metrics and timeline activity for the Command Center.
+* **`activetrading.js`**: Manages logging active trades and uploading chart images.
+* **`settings.js`**: Manages user configurations, such as custom trading strategies.
+* **`investing.js`**: Handles DCA campaign logging.
 
-## Customize configuration
+### `/src/router`
+Configuration for `vue-router`. Contains route definitions and navigation guards to protect authenticated routes and redirect unauthenticated users securely.
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### `/src/utils`
+Utility functions and configurations, prominently containing `axios.js` which sets up the interceptors to attach the JWT Bearer token to all outgoing authenticated requests.
 
-## Project Setup
+### `/src/assets`
+Contains global stylesheets (`main.css`), Tailwind directives, and static assets (images, fonts).
 
-```sh
-npm install
-```
+## ⚙️ Setup & Installation
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
+1. Navigate to the client directory:
+   ```sh
+   cd client
+   ```
+2. Install dependencies:
+   ```sh
+   npm install
+   ```
+3. Run the development server:
+   ```sh
+   npm run dev
+   ```
+4. Build for production:
+   ```sh
+   npm run build
+   ```
