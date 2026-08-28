@@ -13,7 +13,7 @@ To ensure clean data and accurate performance metrics, this application is split
 *   **Investment Logging:** Record individual asset purchases (asset name, date, price, amount, and fees).
 *   **DCA Campaign Grouping:** Link continuous buys of the same asset into a single "Campaign" to calculate the true average cost basis automatically.
 *   **Holdings Dashboard:** A high-level list displaying total invested capital, total holdings, average cost basis, live current price, current overall value, and unrealized position profit (%).
-*   **Phase Tracking:** Track the macro stage of the asset (Accumulation, Markup, Distribution).
+*   **Phase Tracking:** Track the macro stage of the asset.
 
 ### Module B: The Active Trading Journal
 *   **Isolated Trade Entries:** Log distinct, completed transactions (Buy/Sell, exact entry/exit prices, dates, and fees).
@@ -22,10 +22,10 @@ To ensure clean data and accurate performance metrics, this application is split
 *   **Chart Attachments:** Upload screenshots of the exact chart conditions at the moment of entry or exit for post-trade review.
 
 ### Global System Features
-*   **Live Price Integration:** Backend connections to live market data APIs (e.g., Binance, Alpha Vantage) to keep the current price and floating values updated in real-time across both modules.
+*   **Live Price Integration:** Backend connections to live market data APIs (Coins.ph) to keep the current price and floating values updated in real-time across both modules.
 
 ## Tech Stack
 *   **Frontend:** Vue.js
 *   **Backend:** ASP.NET Core (Web API)
 *   **Database:** PostgreSQL
-*   **Storage:** AWS S3 (for chart screenshot uploads)
+*   **Storage:** Supabase storage bucket (for chart screenshot uploads)
