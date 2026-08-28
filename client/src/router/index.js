@@ -51,9 +51,24 @@ const router = createRouter({
   ],
 })
 
+const isTokenValid = (token) => {
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 > Date.now();
+  } catch (e) {
+    return false;
+  }
+};
+
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = !!localStorage.getItem('token');
+  const token = localStorage.getItem('token');
+  const isAuthenticated = isTokenValid(token);
   
+  if (!isAuthenticated && token) {
+    localStorage.removeItem('token');
+  }
+
   if (isAuthenticated && (to.name === 'login' || to.name === 'register' || to.name === 'hero')) {
     // Redirect authenticated users away from public pages
     next({ name: 'home' });
