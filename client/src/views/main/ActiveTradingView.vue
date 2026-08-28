@@ -199,6 +199,20 @@ const handleLogTrade = async () => {
     isSubmitting.value = false;
   }
 };
+// Chart View Modal State
+const isChartModalOpen = ref(false);
+const activeChartUrl = ref('');
+
+const openChartModal = (url) => {
+  if (!url) return;
+  activeChartUrl.value = url;
+  isChartModalOpen.value = true;
+};
+
+const closeChartModal = () => {
+  isChartModalOpen.value = false;
+  setTimeout(() => { activeChartUrl.value = ''; }, 300);
+};
 </script>
 
 <template>
@@ -332,7 +346,7 @@ const handleLogTrade = async () => {
                 </span>
               </td>
               <td class="px-8 py-4 text-center">
-                <div v-if="trade.hasChart" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400 hover:text-primary hover:bg-light-blue cursor-pointer transition-colors" title="View attached chart">
+                <div v-if="trade.hasChart" @click.stop="openChartModal(trade.chartImageUrl)" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gray-100 text-gray-400 hover:text-primary hover:bg-light-blue cursor-pointer transition-colors" title="View attached chart">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 </div>
                 <span v-else class="text-text-muted text-xs italic">No chart</span>
@@ -532,6 +546,15 @@ const handleLogTrade = async () => {
           </div>
         </div>
 
+      </div>
+    </div>
+    <!-- Chart View Modal -->
+    <div v-if="isChartModalOpen && activeChartUrl" class="fixed inset-0 bg-gray-900/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+      <div class="relative w-full max-w-5xl animate-[fadeIn_0.2s_ease-out]">
+        <button @click="closeChartModal" class="absolute -top-12 right-0 md:-right-12 text-white/70 hover:text-white transition-colors p-2 bg-gray-900/50 hover:bg-gray-900 rounded-full">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <img :src="activeChartUrl" class="w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" alt="Full size chart view" />
       </div>
     </div>
   </div>
